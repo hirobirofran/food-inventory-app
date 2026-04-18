@@ -7,7 +7,7 @@ import { Recipe, SuggestResponse } from '@/app/api/ai/suggest/route';
 const applianceEmoji: Record<string, string> = {
   'オートクッカービストロ': '🍲',
   'ビストロレンジ': '📡',
-  'グラロボ': '🔥',
+  'グルラボ': '🔥',
 };
 
 function getApplianceEmoji(appliance: string): string {
@@ -169,7 +169,7 @@ export function AiSuggest({ foods }: Props) {
       )}
 
       <p className="text-xs text-gray-400 mt-4 text-center">
-        ※ オートクッカービストロ・ビストロレンジ・グラロボを活用した時短レシピを優先して提案します
+        ※ オートクッカービストロ・ビストロレンジ・グルラボを活用した時短レシピを優先して提案します
       </p>
     </div>
   );

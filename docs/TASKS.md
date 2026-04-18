@@ -13,18 +13,12 @@
 - [x] AIレシピタブのUI（ボタンのみ、API未接続）
 - [x] ボトムナビゲーション（在庫 / 買い物 / AIレシピ）
 - [x] ドキュメント整備（docs/ フォルダ）
+- [x] Google Sheets API 連携（CRUD 完全実装、データ永続化）
+- [x] GitHub リポジトリ公開・push
 
 ### 🔲 次にやること
 
-- [ ] **Google Sheets API 連携**
-  - Google Cloud Consoleでサービスアカウント作成
-  - Sheets APIを有効化
-  - `src/lib/sheets.ts` 実装
-  - `src/app/api/foods/route.ts` 実装（CRUD）
-  - モックデータをSheets連携に切り替え
-  - `.env.local` に認証情報を設定
-
-- [ ] **Claude API によるAIレシピ・献立提案**
+- [ ] **Gemini API によるAIレシピ・献立提案**
   - `src/app/api/ai/suggest/route.ts` 実装
   - 在庫リストをプロンプトに埋め込む
   - オートクッカービストロ・ビストロレンジ・グラロボを使ったレシピを優先する指示

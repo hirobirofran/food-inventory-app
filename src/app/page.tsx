@@ -5,6 +5,7 @@ import { FoodItem } from '@/types/food';
 import { FoodList } from '@/components/FoodList';
 import { ShoppingList } from '@/components/ShoppingList';
 import { FoodFormModal } from '@/components/FoodFormModal';
+import { AiSuggest } from '@/components/AiSuggest';
 
 type Tab = 'inventory' | 'shopping' | 'ai';
 
@@ -123,37 +124,7 @@ export default function Home() {
                 onUpdateQuantity={handleUpdateQuantity}
               />
             )}
-            {tab === 'ai' && (
-              <div className="text-center py-12">
-                <div className="text-5xl mb-4">🤖</div>
-                <h2 className="text-lg font-bold text-gray-800 mb-2">AIレシピ提案</h2>
-                <p className="text-gray-500 text-sm mb-6">
-                  今ある食材をもとに、今夜の献立や<br />買い物プランを提案します
-                </p>
-                <div className="bg-white border border-gray-200 rounded-2xl p-4 text-left space-y-3 mb-4">
-                  <p className="text-sm text-gray-600 font-medium">現在の在庫: {foods.length}品目</p>
-                  <div className="flex flex-wrap gap-1">
-                    {foods.slice(0, 8).map(f => (
-                      <span key={f.id} className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-full">
-                        {f.name}
-                      </span>
-                    ))}
-                    {foods.length > 8 && (
-                      <span className="text-gray-400 text-xs px-2 py-1">他{foods.length - 8}品目...</span>
-                    )}
-                  </div>
-                </div>
-                <button
-                  className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-2xl font-bold text-base"
-                  onClick={() => alert('AI連携は次のフェーズで実装します！')}
-                >
-                  今夜の献立を考えてもらう
-                </button>
-                <p className="text-xs text-gray-400 mt-3">
-                  ※ オートクッカービストロ・ビストロレンジ・グラロボを活用した時短レシピも提案できます
-                </p>
-              </div>
-            )}
+            {tab === 'ai' && <AiSuggest foods={foods} />}
           </>
         )}
       </main>

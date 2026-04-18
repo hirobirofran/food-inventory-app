@@ -18,7 +18,7 @@
 
 ### 🔲 次にやること
 
-- [ ] **Gemini API によるAIレシピ・献立提案**
+- [x] **Gemini API によるAIレシピ・献立提案**（gemini-2.5-flash-lite、無料枠）
   - `src/app/api/ai/suggest/route.ts` 実装
   - 在庫リストをプロンプトに埋め込む
   - オートクッカービストロ・ビストロレンジ・グラロボを使ったレシピを優先する指示

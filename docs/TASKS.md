@@ -23,6 +23,15 @@
   - 在庫リストをプロンプトに埋め込む
   - オートクッカービストロ・ビストロレンジ・グラロボを使ったレシピを優先する指示
   - フロントエンドのAIタブに接続
+- [x] **Vercel デプロイ**（本番 + デモ環境）
+  - 本番: <https://food-inventory-app-nu.vercel.app/>
+  - デモ: <https://food-inventory-demo.vercel.app/> （`NEXT_PUBLIC_APP_ENV=demo` でオレンジバナー表示）
+  - 本番用とデモ用で別々のGoogleスプレッドシートを使用
+
+### 🔜 次のステップ
+
+- [ ] デモ環境の定期リセット機構（毎週など、ダミーデータで上書き）
+- [ ] Phase 2 着手（レシートOCR or Push通知）
 
 ---
 

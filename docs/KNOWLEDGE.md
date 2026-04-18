@@ -72,6 +72,25 @@
 
 ---
 
+## 2026-04-18（セッション3：Vercel デプロイ）
+
+技術メモ:
+
+- Vercel の `GOOGLE_PRIVATE_KEY` 環境変数は PowerShell のパイプ経由で設定すると値が空になったり末尾に改行が付いたりする。`--value` フラグ or Vercel ダッシュボードから直接貼り付けるのが確実
+- `invalid_grant: account not found` エラーは、サービスアカウントのメール or キーが不一致（環境変数の壊れ）が原因。ダッシュボードから手動で設定し直すと解決
+- CLI で作成（`vercel project add`）したプロジェクトは GitHub 連携がなく、デプロイが安定しない。ダッシュボードから **Import Git Repository** で作るのが正攻法
+- Vercel Hobby プランでもプロジェクト単位で **Deployment Protection → Vercel Authentication → Disabled** にすれば公開できる（**Save ボタンを忘れずに**）
+- 同じ GitHub リポジトリを複数の Vercel プロジェクトに紐付けられる（= 本番用プロジェクトとデモ用プロジェクトを分離できる）。push 1回で両方がビルドされる
+- デモ環境の識別は `NEXT_PUBLIC_APP_ENV=demo` で行い、`src/app/layout.tsx` でオレンジバナー表示を分岐
+
+次回への申し送り:
+
+- デモ環境の定期リセット機構が未実装。cron で `inventory` シートをクリア＋ダミーデータ挿入する仕組みが必要
+- 本番とデモで GEMINI_API_KEY を共有している。レート制限（10 req/min）を意識すること
+- Vercel MCP を追加したので、Claude Code から直接デプロイ状況を確認可能
+
+---
+
 <!-- 新しいセッションの記録はこのテンプレートをコピーして追記してください -->
 <!--
 ## YYYY-MM-DD

@@ -42,3 +42,6 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# incident 対応の作業メモ（公開しない）
+/_incident/

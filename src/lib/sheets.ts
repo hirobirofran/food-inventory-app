@@ -29,6 +29,8 @@ function rowToFood(row: string[]): FoodItem | null {
     storageLocation: (row[6] as FoodItem['storageLocation']) ?? '常温',
     minQuantity: parseFloat(row[7]) || 0,
     note: row[8] ?? '',
+    openedDate: row[9] || null,
+    daysAfterOpening: row[10] !== undefined && row[10] !== '' ? parseFloat(row[10]) : null,
   };
 }
 
@@ -43,6 +45,8 @@ function foodToRow(food: Omit<FoodItem, 'id'> & { id?: string }): string[] {
     food.storageLocation,
     String(food.minQuantity),
     food.note,
+    food.openedDate ?? '',
+    food.daysAfterOpening != null ? String(food.daysAfterOpening) : '',
   ];
 }
 
@@ -52,7 +56,7 @@ export async function getFoods(): Promise<FoodItem[]> {
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A2:I`,
+    range: `${SHEET_NAME}!A2:K`,
   });
 
   const rows = res.data.values ?? [];
@@ -67,7 +71,7 @@ export async function addFood(data: Omit<FoodItem, 'id'>): Promise<FoodItem> {
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A:I`,
+    range: `${SHEET_NAME}!A:K`,
     valueInputOption: 'RAW',
     requestBody: { values: [foodToRow(newFood)] },
   });
@@ -93,7 +97,7 @@ export async function updateFood(id: string, data: Omit<FoodItem, 'id'>): Promis
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A${rowNum}:I${rowNum}`,
+    range: `${SHEET_NAME}!A${rowNum}:K${rowNum}`,
     valueInputOption: 'RAW',
     requestBody: { values: [foodToRow(updated)] },
   });

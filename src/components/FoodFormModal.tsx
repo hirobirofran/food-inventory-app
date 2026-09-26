@@ -9,6 +9,14 @@ const CATEGORIES: Category[] = [
 
 const LOCATIONS: StorageLocation[] = ['冷蔵庫', '冷凍庫', '常温', 'その他'];
 
+function todayLocalDateString(): string {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 type Props = {
   item?: FoodItem;
   onSave: (item: Omit<FoodItem, 'id'>) => void;
@@ -25,6 +33,8 @@ export function FoodFormModal({ item, onSave, onClose }: Props) {
     storageLocation: item?.storageLocation ?? '冷蔵庫' as StorageLocation,
     minQuantity: item?.minQuantity ?? 0,
     note: item?.note ?? '',
+    openedDate: item?.openedDate ?? '',
+    daysAfterOpening: item?.daysAfterOpening != null ? String(item.daysAfterOpening) : '',
   });
 
   function handleSubmit(e: React.FormEvent) {
@@ -32,6 +42,11 @@ export function FoodFormModal({ item, onSave, onClose }: Props) {
     onSave({
       ...form,
       expiryDate: form.expiryDate || null,
+      openedDate: form.openedDate || null,
+      daysAfterOpening:
+        form.daysAfterOpening === '' || Number.isNaN(parseFloat(form.daysAfterOpening))
+          ? null
+          : parseFloat(form.daysAfterOpening),
     });
   }
 
@@ -116,6 +131,40 @@ export function FoodFormModal({ item, onSave, onClose }: Props) {
               value={form.expiryDate}
               onChange={e => setForm(f => ({ ...f, expiryDate: e.target.value }))}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-green-400"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">開封日</label>
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={form.openedDate}
+                onChange={e => setForm(f => ({ ...f, openedDate: e.target.value }))}
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-green-400"
+              />
+              <button
+                type="button"
+                onClick={() => setForm(f => ({ ...f, openedDate: todayLocalDateString() }))}
+                className="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 whitespace-nowrap"
+              >
+                今日開封
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              開封後の目安日数 <span className="text-gray-400 font-normal text-xs">（開封日から何日で食べきるか）</span>
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={form.daysAfterOpening}
+              onChange={e => setForm(f => ({ ...f, daysAfterOpening: e.target.value }))}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-green-400"
+              placeholder="例：3"
             />
           </div>
 

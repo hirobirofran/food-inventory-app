@@ -2,7 +2,7 @@ import { google } from 'googleapis';
 import { demoFoods } from './demoData';
 
 const SHEET_NAME = 'inventory';
-const HEADER = ['id', 'name', 'category', 'quantity', 'unit', 'expiryDate', 'storageLocation', 'minQuantity', 'note'];
+const HEADER = ['id', 'name', 'category', 'quantity', 'unit', 'expiryDate', 'storageLocation', 'minQuantity', 'note', 'openedDate', 'daysAfterOpening'];
 
 function offsetToDate(offsetDays: number | null): string {
   if (offsetDays === null) return '';
@@ -45,7 +45,7 @@ async function main() {
   console.log(`Clearing demo sheet ${spreadsheetId}...`);
   await sheets.spreadsheets.values.clear({
     spreadsheetId,
-    range: `${SHEET_NAME}!A:I`,
+    range: `${SHEET_NAME}!A:K`,
   });
 
   const rows: string[][] = [HEADER];
@@ -61,6 +61,8 @@ async function main() {
       item.storageLocation,
       String(item.minQuantity),
       item.note,
+      item.openedOffsetDays != null ? offsetToDate(item.openedOffsetDays) : '',
+      item.daysAfterOpening != null ? String(item.daysAfterOpening) : '',
     ]);
   }
 

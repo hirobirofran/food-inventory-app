@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { FoodItem, getExpiryStatus } from '@/types/food';
+import { FoodItem, getEffectiveExpiry, getExpiryStatus } from '@/types/food';
 import { ExpiryBadge } from './ExpiryBadge';
 import { FoodFormModal } from './FoodFormModal';
 
@@ -25,13 +25,15 @@ export function FoodList({ foods, onUpdate, onDelete }: Props) {
 
   const locationMap = { all: null, fridge: '冷蔵庫', freezer: '冷凍庫', room: '常温' } as const;
 
-  // 賞味期限の近い順にソート
+  // 実際の期限（印字 or 開封後）の近い順にソート
   const sorted = [...foods].sort((a, b) => {
     const statusOrder = { expired: 0, warning: 1, ok: 2, none: 3 };
-    const sa = getExpiryStatus(a.expiryDate);
-    const sb = getExpiryStatus(b.expiryDate);
+    const ea = getEffectiveExpiry(a);
+    const eb = getEffectiveExpiry(b);
+    const sa = getExpiryStatus(ea.date);
+    const sb = getExpiryStatus(eb.date);
     if (statusOrder[sa] !== statusOrder[sb]) return statusOrder[sa] - statusOrder[sb];
-    if (a.expiryDate && b.expiryDate) return a.expiryDate.localeCompare(b.expiryDate);
+    if (ea.date && eb.date) return ea.date.localeCompare(eb.date);
     return 0;
   });
 
@@ -41,8 +43,8 @@ export function FoodList({ foods, onUpdate, onDelete }: Props) {
     return locMatch && searchMatch;
   });
 
-  const expiredCount = foods.filter(f => getExpiryStatus(f.expiryDate) === 'expired').length;
-  const warningCount = foods.filter(f => getExpiryStatus(f.expiryDate) === 'warning').length;
+  const expiredCount = foods.filter(f => getExpiryStatus(getEffectiveExpiry(f).date) === 'expired').length;
+  const warningCount = foods.filter(f => getExpiryStatus(getEffectiveExpiry(f).date) === 'warning').length;
 
   return (
     <div>
@@ -106,7 +108,8 @@ export function FoodList({ foods, onUpdate, onDelete }: Props) {
       ) : (
         <div className="space-y-2">
           {filtered.map(food => {
-            const status = getExpiryStatus(food.expiryDate);
+            const effective = getEffectiveExpiry(food);
+            const status = getExpiryStatus(effective.date);
             const rowBg =
               status === 'expired' ? 'bg-red-50 border-red-200' :
               status === 'warning' ? 'bg-yellow-50 border-yellow-200' :
@@ -125,7 +128,7 @@ export function FoodList({ foods, onUpdate, onDelete }: Props) {
                   </div>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span className="text-xs text-gray-400">{food.category}</span>
-                    {food.expiryDate && <ExpiryBadge expiryDate={food.expiryDate} />}
+                    {effective.date && <ExpiryBadge date={effective.date} source={effective.source} />}
                     {food.note && <span className="text-xs text-gray-400">{food.note}</span>}
                   </div>
                 </div>

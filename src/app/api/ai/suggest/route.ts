@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
-import { FoodItem, getExpiryStatus } from '@/types/food';
+import { FoodItem, getEffectiveExpiry, getExpiryStatus } from '@/types/food';
 
 export type Recipe = {
   title: string;
@@ -23,7 +23,10 @@ export async function POST(request: Request) {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
 
-    const urgentFoods = foods.filter(f => getExpiryStatus(f.expiryDate) === 'expired' || getExpiryStatus(f.expiryDate) === 'warning');
+    const urgentFoods = foods.filter(f => {
+      const status = getExpiryStatus(getEffectiveExpiry(f).date);
+      return status === 'expired' || status === 'warning';
+    });
     const availableFoods = foods.filter(f => f.quantity > 0);
 
     const inventoryText = availableFoods.map(f =>

@@ -10,18 +10,21 @@ const statusStyles: Record<ExpiryStatus, string> = {
 };
 
 type Props = {
-  expiryDate: string | null;
+  date: string | null;
+  source?: 'printed' | 'opened' | null;
 };
 
-export function ExpiryBadge({ expiryDate }: Props) {
-  const status = getExpiryStatus(expiryDate);
-  const label = getExpiryLabel(expiryDate);
+export function ExpiryBadge({ date, source }: Props) {
+  const status = getExpiryStatus(date);
+  const label = getExpiryLabel(date);
 
   if (status === 'none') return <span className="text-gray-400 text-xs">期限なし</span>;
 
+  const prefix = source === 'opened' ? '開封後 ' : '';
+
   return (
     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusStyles[status]}`}>
-      {label}
+      {prefix}{label}
     </span>
   );
 }

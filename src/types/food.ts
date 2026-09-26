@@ -30,11 +30,12 @@ export type EffectiveExpiry = {
   source: 'printed' | 'opened' | null;
 };
 
-// dateStr（YYYY-MM-DD）にdays日を加算した日付をローカル日付基準で YYYY-MM-DD で返す
-function addDaysToDateString(dateStr: string, days: number): string {
+// dateStr（YYYY-MM-DD）にdays日を加算した日付をローカル日付基準で YYYY-MM-DD で返す。解釈できなければ null
+function addDaysToDateString(dateStr: string, days: number): string | null {
   const [y, m, d] = dateStr.split('-').map(Number);
   const date = new Date(y, (m ?? 1) - 1, d ?? 1);
   date.setDate(date.getDate() + days);
+  if (Number.isNaN(date.getTime())) return null;
   const yyyy = date.getFullYear();
   const mm = String(date.getMonth() + 1).padStart(2, '0');
   const dd = String(date.getDate()).padStart(2, '0');

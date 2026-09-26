@@ -17,6 +17,21 @@ function getAuth() {
   });
 }
 
+// シートを手編集すると日付セルが "2026/4/15" 形式で返るため YYYY-MM-DD に揃える
+function normalizeDate(value: string | undefined): string | null {
+  if (!value) return null;
+  const match = value.trim().match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (!match) return value;
+  const [, y, m, d] = match;
+  return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+}
+
+function parseDays(value: string | undefined): number | null {
+  if (value === undefined || value === '') return null;
+  const days = parseFloat(value);
+  return Number.isFinite(days) ? days : null;
+}
+
 function rowToFood(row: string[]): FoodItem | null {
   if (!row[0]) return null;
   return {
@@ -25,12 +40,12 @@ function rowToFood(row: string[]): FoodItem | null {
     category: (row[2] as FoodItem['category']) ?? 'その他',
     quantity: parseFloat(row[3]) || 0,
     unit: row[4] ?? '個',
-    expiryDate: row[5] || null,
+    expiryDate: normalizeDate(row[5]),
     storageLocation: (row[6] as FoodItem['storageLocation']) ?? '常温',
     minQuantity: parseFloat(row[7]) || 0,
     note: row[8] ?? '',
-    openedDate: row[9] || null,
-    daysAfterOpening: row[10] !== undefined && row[10] !== '' ? parseFloat(row[10]) : null,
+    openedDate: normalizeDate(row[9]),
+    daysAfterOpening: parseDays(row[10]),
   };
 }
 

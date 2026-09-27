@@ -117,6 +117,24 @@ UX・設計の気づき:
 
 ---
 
+## 2026-09-27（セッション: セキュリティ更新 + Gemini移行 + lint修正）
+
+**技術的な気づき**
+
+- Next.js 16.2.4 は `next/og` の ImageResponse（Satori依存）に起因するRCE（GHSA-vcvr-r3jv-pc5j）を含む多数の既知脆弱性の影響範囲内（`>=16.2.0 <16.3.6`）。16.3.6（緊急セキュリティリリース）へ更新。React/ReactDOMもpeer依存に合わせ19.3.0に整合
+- `gemini-2.5-flash-lite` は提供終了予定（2026-10中旬〜下旬）。現行の安定Flash-Liteは `gemini-3.5-flash-lite`（shutdown予定は2027-07-21以降）。あわせて非推奨の `@google/generative-ai` から後継の `@google/genai` に移行。API形状が変わった: `new GoogleGenAI({apiKey})` → `ai.models.generateContent({model, contents})` → `response.text`（`text()`関数ではなくプロパティ）
+- `npm run lint` の `react-hooks/set-state-in-effect`（Issue #12）は React Compiler の ESLint プラグインによる静的解析で、`useCallback` でラップした関数をマウント時 `useEffect` から呼ぶ「fetch-on-mount」パターンを誤検知する。今回は挙動を変えず、該当行に `eslint-disable-next-line` + 理由コメントで対応（ロジックの書き換えはしていない）
+- Vercel は 2026-10-01 に Node.js 20 を Builds/Functions で非推奨化。`package.json` に `engines.node: ">=22"`、`.nvmrc`（`22`）を追加（元々どちらも未設定だった）
+- `npm audit fix`（`--force` なし）では next-pwa 経由の `serialize-javascript`（High, RCE）など一部は解消されない（next-pwa 2.x への破壊的更新が必要なため見送り、記録のみ）
+
+**次回セッションへの申し送り**
+
+- PR1（このセッションの変更、ブランチ `chore/security-deps-gemini-2026-09`）は push 前のローカルコミットのみ。マージ前に Vercel プレビューで Gemini API 呼び出しの実動作確認が必要（レスポンス形式は変えていないはずだが、実APIキーでの疎通確認は未実施）
+- `npm audit fix --force` を使う場合は next-pwa の破壊的変更を精査してから別セッションで対応
+- 9/30予定の Next.js 16.3.7（追加のセキュリティ修正）が出たら追随する
+
+---
+
 <!-- 新しいセッションの記録はこのテンプレートをコピーして追記してください -->
 <!--
 ## YYYY-MM-DD

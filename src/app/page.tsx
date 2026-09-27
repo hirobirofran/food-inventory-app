@@ -9,6 +9,12 @@ import { AiSuggest } from '@/components/AiSuggest';
 
 type Tab = 'inventory' | 'shopping' | 'ai';
 
+async function loadFoods(): Promise<FoodItem[]> {
+  const res = await fetch('/api/foods');
+  if (!res.ok) throw new Error('データの取得に失敗しました');
+  return res.json();
+}
+
 export default function Home() {
   const [foods, setFoods] = useState<FoodItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,21 +22,29 @@ export default function Home() {
   const [tab, setTab] = useState<Tab>('inventory');
   const [showAddModal, setShowAddModal] = useState(false);
 
-  const fetchFoods = useCallback(async () => {
-    try {
-      setError(null);
-      const res = await fetch('/api/foods');
-      if (!res.ok) throw new Error('データの取得に失敗しました');
-      const data = await res.json();
-      setFoods(data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'エラーが発生しました');
-    } finally {
-      setLoading(false);
-    }
+  const applyResult = useCallback((p: Promise<FoodItem[]>) => {
+    return p
+      .then(data => setFoods(data))
+      .catch(e => setError(e instanceof Error ? e.message : 'エラーが発生しました'))
+      .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { fetchFoods(); }, [fetchFoods]);
+  // マウント時の一覧取得。ignore フラグで、アンマウント後や再実行時の古い結果による setState を防ぐ
+  // （React公式のデータ取得パターン。await後のsetStateも同期扱いで検出する react-hooks/set-state-in-effect を、
+  // 抑制コメントなしで満たせる）
+  useEffect(() => {
+    let ignore = false;
+    loadFoods()
+      .then(data => { if (!ignore) setFoods(data); })
+      .catch(e => { if (!ignore) setError(e instanceof Error ? e.message : 'エラーが発生しました'); })
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; };
+  }, []);
+
+  function handleRetry() {
+    setError(null);
+    void applyResult(loadFoods());
+  }
 
   async function handleAdd(data: Omit<FoodItem, 'id'>) {
     const res = await fetch('/api/foods', {
@@ -101,7 +115,7 @@ export default function Home() {
             <p className="font-medium">接続エラー</p>
             <p className="mt-1">{error}</p>
             <button
-              onClick={fetchFoods}
+              onClick={handleRetry}
               className="mt-3 text-red-600 underline text-xs"
             >
               再読み込み

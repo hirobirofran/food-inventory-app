@@ -26,7 +26,7 @@
 
 ### 🔲 次にやること
 
-- [x] **Gemini API によるAIレシピ・献立提案**（gemini-2.5-flash-lite、無料枠）
+- [x] **Gemini API によるAIレシピ・献立提案**（`gemini-3.5-flash-lite`、`@google/genai` SDK、無料枠。2026-09に旧 `gemini-2.5-flash-lite`／`@google/generative-ai` から移行）
   - `src/app/api/ai/suggest/route.ts` 実装
   - 在庫リストをプロンプトに埋め込む
   - オートクッカービストロ・ビストロレンジ・グルラボを使ったレシピを優先する指示
@@ -41,6 +41,12 @@
 
 ### 🔜 次のステップ
 
+- [x] **セキュリティ更新 + Gemini移行 + lintのIssue #12修正**（2026-09、ブランチ `chore/security-deps-gemini-2026-09`）
+  - Next.js 16.2.4 → 16.3.6（Critical含む既知脆弱性の緊急修正版）、React/ReactDOM 19.3.0 に整合
+  - `@google/generative-ai`（非推奨）→ `@google/genai` へ移行、モデルを新規プロジェクト非推奨の `gemini-2.5-flash-lite` から `gemini-3.5-flash-lite` へ変更
+  - 未使用だった `@google-cloud/local-auth` / `next-pwa` を削除、`tsx` を同メジャー内で更新し、`npm audit` を 0件に
+  - `npm run lint` が `react-hooks/set-state-in-effect` で失敗していた件（Issue #12）を `src/app/page.tsx` の effect を ignore フラグ付きの直接 fetch に書き換えて解消（抑制コメントなし）
+  - `package.json` の `engines.node` を `24.x`、`.nvmrc` を `24` に統一（Vercel は `engines.node` の major を優先しビルドに使う）
 - [ ] AI 安全弁のローカルテストケース整備（歯磨き・ガム等をプロンプトに混ぜて、組み込まれないこと・器具で壊れないことを検証）
 - [ ] デモ環境の定期リセット機構（cron で `seed:demo` を定期実行）
 - [ ] 補充アサイン機能の設計（誰が買うか、常備しないフラグ）

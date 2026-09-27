@@ -24,7 +24,7 @@
 | データ保存 | Google Sheets API | 既存Googleアカウントで使える。家族共有が簡単。バックアップ自動 |
 | AI | Claude API (claude-sonnet-4-6) | レシピ提案・OCR・買い物プラン生成。Vision対応 |
 | デプロイ | Vercel | Next.jsと相性最良。無料枠あり。スマホからもアクセス可 |
-| PWA | next-pwa | スマホのホーム画面に追加できる（アプリ感覚） |
+| PWA | （未実装、2026-09時点） | スマホのホーム画面に追加できる（アプリ感覚）。`next-pwa` は Turbopack と相性が悪く未使用の依存になっていたため削除済み。実装時は Next.js 公式ガイド（`manifest.ts` + Serwist）を使う想定 |
 
 ## データ設計（Google Sheets）
 

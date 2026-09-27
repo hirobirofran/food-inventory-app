@@ -1,6 +1,6 @@
 'use client';
 
-import { ExpiryStatus, getExpiryLabel, getExpiryStatus } from '@/types/food';
+import { EffectiveExpiry, ExpiryStatus, getExpiryLabel, getExpiryStatus } from '@/types/food';
 
 const statusStyles: Record<ExpiryStatus, string> = {
   expired: 'bg-red-100 text-red-700 border border-red-300',
@@ -11,7 +11,7 @@ const statusStyles: Record<ExpiryStatus, string> = {
 
 type Props = {
   date: string | null;
-  source?: 'printed' | 'opened' | null;
+  source?: EffectiveExpiry['source'];
 };
 
 export function ExpiryBadge({ date, source }: Props) {

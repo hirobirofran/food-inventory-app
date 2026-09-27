@@ -29,7 +29,7 @@ function normalizeDate(value: string | undefined): string | null {
 function parseDays(value: string | undefined): number | null {
   if (value === undefined || value === '') return null;
   const days = parseFloat(value);
-  return Number.isFinite(days) ? days : null;
+  return Number.isInteger(days) && days >= 0 ? days : null;
 }
 
 function rowToFood(row: string[]): FoodItem | null {

@@ -122,16 +122,15 @@ UX・設計の気づき:
 **技術的な気づき**
 
 - Next.js 16.2.4 は `next/og` の ImageResponse（Satori依存）に起因するRCE（GHSA-vcvr-r3jv-pc5j）を含む多数の既知脆弱性の影響範囲内（`>=16.2.0 <16.3.6`）。16.3.6（緊急セキュリティリリース）へ更新。React/ReactDOMもpeer依存に合わせ19.3.0に整合
-- `gemini-2.5-flash-lite` は提供終了予定（2026-10中旬〜下旬）。現行の安定Flash-Liteは `gemini-3.5-flash-lite`（shutdown予定は2027-07-21以降）。あわせて非推奨の `@google/generative-ai` から後継の `@google/genai` に移行。API形状が変わった: `new GoogleGenAI({apiKey})` → `ai.models.generateContent({model, contents})` → `response.text`（`text()`関数ではなくプロパティ）
-- `npm run lint` の `react-hooks/set-state-in-effect`（Issue #12）は React Compiler の ESLint プラグインによる静的解析で、`useCallback` でラップした関数をマウント時 `useEffect` から呼ぶ「fetch-on-mount」パターンを誤検知する。今回は挙動を変えず、該当行に `eslint-disable-next-line` + 理由コメントで対応（ロジックの書き換えはしていない）
-- Vercel は 2026-10-01 に Node.js 20 を Builds/Functions で非推奨化。`package.json` に `engines.node: ">=22"`、`.nvmrc`（`22`）を追加（元々どちらも未設定だった）
-- `npm audit fix`（`--force` なし）では next-pwa 経由の `serialize-javascript`（High, RCE）など一部は解消されない（next-pwa 2.x への破壊的更新が必要なため見送り、記録のみ）
+- `gemini-2.5-flash-lite` は 2.5 系全体として新規プロジェクトでの利用が非推奨（`ai.google.dev/gemini-api/docs/models`: 「limiting access to users who have actively used them in the past... For any new projects, use... 3.5 Flash-Lite or 3.8 Flash」）。ただし ai.google.dev の deprecations ページでは shutdown date 未定、一方 Firebase AI Logic の FAQ では「Gemini Developer API: 2026-10-16 / Agent Platform: 2026-10-20」と具体的な停止日が出ている（出典が食い違うので両方併記）。移行先の `gemini-3.5-flash-lite` は Stable（Release 2026-07-21、停止予定は2027-07-21以降）で無料枠あり。あわせて非推奨の `@google/generative-ai` から後継の `@google/genai` に移行。API形状が変わった: `new GoogleGenAI({apiKey})` → `ai.models.generateContent({model, contents})` → `response.text`（`text()`関数ではなくプロパティ）
+- `npm run lint` の `react-hooks/set-state-in-effect`（Issue #12）は、`useCallback` でラップした非同期関数をマウント時 `useEffect` から呼ぶと、`await` 後の `setState` も同期呼び出しとして検出する仕様（誤検知ではない）。抑制コメントで済ませず、React 公式のデータ取得パターン（effect内で直接 fetch し `ignore` フラグでアンマウント後の setState を防ぐ）に書き換えて解消。再読み込みボタン用に `applyResult` ヘルパーを分離した（`src/app/page.tsx`）
+- `@google-cloud/local-auth`（Sheets 認証は `googleapis` の `GoogleAuth` を使用しており未import）と `next-pwa`（`next.config.ts` に未組み込み、Turbopack 既定ビルドでは動かせない）が未使用のまま audit の high 脆弱性の大半の原因になっていたため削除。`tsx` も同じメジャー内（4.21.0→4.23.15）で更新し、esbuild 経由の low を解消。`npm audit fix`（force なし）とあわせて **audit 0件**を達成
+- Vercel は package.json の `engines.node` で major バージョンを上書きしてビルドする（`.nvmrc` は見ない）。`>=22` は Vercel の対応表で 24.x にマップされるため、ローカル（.nvmrc=22）と本番（24）がずれていた。`engines.node: "24.x"` と `.nvmrc`（`24`）に揃えた（ローカル node も v24.16.0 で確認済み）
 
 **次回セッションへの申し送り**
 
-- PR1（このセッションの変更、ブランチ `chore/security-deps-gemini-2026-09`）は push 前のローカルコミットのみ。マージ前に Vercel プレビューで Gemini API 呼び出しの実動作確認が必要（レスポンス形式は変えていないはずだが、実APIキーでの疎通確認は未実施）
-- `npm audit fix --force` を使う場合は next-pwa の破壊的変更を精査してから別セッションで対応
-- 9/30予定の Next.js 16.3.7（追加のセキュリティ修正）が出たら追随する
+- PR1（このセッションの変更、ブランチ `chore/security-deps-gemini-2026-09`）はマージ前に Vercel プレビューで Gemini API 呼び出しの実動作確認が必要（レスポンス形式は変えていないはずだが、実APIキーでの疎通確認は未実施）。あわせて Vercel ダッシュボードの Node バージョン設定もオーナーに確認してもらう（`engines.node` が優先されるはずだが、念のため）
+- 9/30予定だった Next.js 16.3.7（追加のセキュリティ修正）が出ていれば追随する
 
 ---
 

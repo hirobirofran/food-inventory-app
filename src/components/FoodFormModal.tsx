@@ -1,21 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Category, FoodItem, StorageLocation } from '@/types/food';
+import { Category, FoodItem, StorageLocation, parseDaysAfterOpening, toLocalDateString } from '@/types/food';
 
 const CATEGORIES: Category[] = [
   '野菜・果物', '肉・魚', '乳製品・卵', '調味料', '飲み物', '冷凍食品', 'その他',
 ];
 
 const LOCATIONS: StorageLocation[] = ['冷蔵庫', '冷凍庫', '常温', 'その他'];
-
-function todayLocalDateString(): string {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
 
 type Props = {
   item?: FoodItem;
@@ -43,10 +35,7 @@ export function FoodFormModal({ item, onSave, onClose }: Props) {
       ...form,
       expiryDate: form.expiryDate || null,
       openedDate: form.openedDate || null,
-      daysAfterOpening:
-        form.daysAfterOpening === '' || Number.isNaN(parseFloat(form.daysAfterOpening))
-          ? null
-          : parseFloat(form.daysAfterOpening),
+      daysAfterOpening: parseDaysAfterOpening(form.daysAfterOpening),
     });
   }
 
@@ -145,7 +134,7 @@ export function FoodFormModal({ item, onSave, onClose }: Props) {
               />
               <button
                 type="button"
-                onClick={() => setForm(f => ({ ...f, openedDate: todayLocalDateString() }))}
+                onClick={() => setForm(f => ({ ...f, openedDate: toLocalDateString(new Date()) }))}
                 className="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 whitespace-nowrap"
               >
                 今日開封

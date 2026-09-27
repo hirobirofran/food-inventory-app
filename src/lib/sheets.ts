@@ -1,5 +1,5 @@
 import { google } from 'googleapis';
-import { FoodItem } from '@/types/food';
+import { FoodItem, parseDaysAfterOpening } from '@/types/food';
 
 const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID!;
 const SHEET_NAME = 'inventory';
@@ -26,12 +26,6 @@ function normalizeDate(value: string | undefined): string | null {
   return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
 }
 
-function parseDays(value: string | undefined): number | null {
-  if (value === undefined || value === '') return null;
-  const days = parseFloat(value);
-  return Number.isInteger(days) && days >= 0 ? days : null;
-}
-
 function rowToFood(row: string[]): FoodItem | null {
   if (!row[0]) return null;
   return {
@@ -45,7 +39,7 @@ function rowToFood(row: string[]): FoodItem | null {
     minQuantity: parseFloat(row[7]) || 0,
     note: row[8] ?? '',
     openedDate: normalizeDate(row[9]),
-    daysAfterOpening: parseDays(row[10]),
+    daysAfterOpening: parseDaysAfterOpening(row[10]),
   };
 }
 

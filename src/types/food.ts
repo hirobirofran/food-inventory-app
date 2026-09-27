@@ -30,16 +30,28 @@ export type EffectiveExpiry = {
   source: 'printed' | 'opened' | null;
 };
 
+// Date をローカル日付基準で YYYY-MM-DD にする（UTC 変換はしない）
+export function toLocalDateString(date: Date): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// 「開封後の目安日数」の文字列を検証する。整数・0以上のみ許容し、それ以外は null
+export function parseDaysAfterOpening(value: string | undefined): number | null {
+  if (value === undefined || value === '') return null;
+  const days = parseFloat(value);
+  return Number.isInteger(days) && days >= 0 ? days : null;
+}
+
 // dateStr（YYYY-MM-DD）にdays日を加算した日付をローカル日付基準で YYYY-MM-DD で返す。解釈できなければ null
 function addDaysToDateString(dateStr: string, days: number): string | null {
   const [y, m, d] = dateStr.split('-').map(Number);
   const date = new Date(y, (m ?? 1) - 1, d ?? 1);
   date.setDate(date.getDate() + days);
   if (Number.isNaN(date.getTime())) return null;
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const dd = String(date.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+  return toLocalDateString(date);
 }
 
 // 実際の期限 = min(印字の期限, 開封日 + 開封後の目安日数)。片方だけならその方、両方なければ null

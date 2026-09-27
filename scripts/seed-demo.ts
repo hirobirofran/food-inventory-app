@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
 import { demoFoods } from './demoData';
+import { toLocalDateString } from '../src/types/food';
 
 const SHEET_NAME = 'inventory';
 const HEADER = ['id', 'name', 'category', 'quantity', 'unit', 'expiryDate', 'storageLocation', 'minQuantity', 'note', 'openedDate', 'daysAfterOpening'];
@@ -9,10 +10,7 @@ function offsetToDate(offsetDays: number | null): string {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() + offsetDays);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+  return toLocalDateString(d);
 }
 
 async function main() {

@@ -30,6 +30,8 @@ export default function Home() {
     }
   }, []);
 
+  // マウント時に一覧を取得するための意図的なパターン（外部データ同期であり、派生state化はできない）
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchFoods(); }, [fetchFoods]);
 
   async function handleAdd(data: Omit<FoodItem, 'id'>) {

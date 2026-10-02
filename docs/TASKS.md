@@ -26,6 +26,7 @@
 
 ### 🔲 次にやること
 
+- [ ] Vercel インシデント対応（Issue #1）の再開: 本番の値ローテは 2026-10-03 に完了、デモ側が未。手順は `handoff/issues/i1/README.md`
 - [x] **Gemini API によるAIレシピ・献立提案**（gemini-2.5-flash-lite、無料枠）
   - `src/app/api/ai/suggest/route.ts` 実装
   - 在庫リストをプロンプトに埋め込む

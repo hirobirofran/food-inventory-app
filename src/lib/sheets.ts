@@ -1,5 +1,5 @@
 import { google } from 'googleapis';
-import { FoodItem } from '@/types/food';
+import { FoodItem, parseDaysAfterOpening } from '@/types/food';
 
 const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID!;
 const SHEET_NAME = 'inventory';
@@ -17,6 +17,15 @@ function getAuth() {
   });
 }
 
+// シートを手編集すると日付セルが "2026/4/15" 形式で返るため YYYY-MM-DD に揃える
+function normalizeDate(value: string | undefined): string | null {
+  if (!value) return null;
+  const match = value.trim().match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (!match) return value;
+  const [, y, m, d] = match;
+  return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+}
+
 function rowToFood(row: string[]): FoodItem | null {
   if (!row[0]) return null;
   return {
@@ -25,10 +34,12 @@ function rowToFood(row: string[]): FoodItem | null {
     category: (row[2] as FoodItem['category']) ?? 'その他',
     quantity: parseFloat(row[3]) || 0,
     unit: row[4] ?? '個',
-    expiryDate: row[5] || null,
+    expiryDate: normalizeDate(row[5]),
     storageLocation: (row[6] as FoodItem['storageLocation']) ?? '常温',
     minQuantity: parseFloat(row[7]) || 0,
     note: row[8] ?? '',
+    openedDate: normalizeDate(row[9]),
+    daysAfterOpening: parseDaysAfterOpening(row[10]),
   };
 }
 
@@ -43,6 +54,8 @@ function foodToRow(food: Omit<FoodItem, 'id'> & { id?: string }): string[] {
     food.storageLocation,
     String(food.minQuantity),
     food.note,
+    food.openedDate ?? '',
+    food.daysAfterOpening != null ? String(food.daysAfterOpening) : '',
   ];
 }
 
@@ -52,7 +65,7 @@ export async function getFoods(): Promise<FoodItem[]> {
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A2:I`,
+    range: `${SHEET_NAME}!A2:K`,
   });
 
   const rows = res.data.values ?? [];
@@ -67,7 +80,7 @@ export async function addFood(data: Omit<FoodItem, 'id'>): Promise<FoodItem> {
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A:I`,
+    range: `${SHEET_NAME}!A:K`,
     valueInputOption: 'RAW',
     requestBody: { values: [foodToRow(newFood)] },
   });
@@ -93,7 +106,7 @@ export async function updateFood(id: string, data: Omit<FoodItem, 'id'>): Promis
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A${rowNum}:I${rowNum}`,
+    range: `${SHEET_NAME}!A${rowNum}:K${rowNum}`,
     valueInputOption: 'RAW',
     requestBody: { values: [foodToRow(updated)] },
   });

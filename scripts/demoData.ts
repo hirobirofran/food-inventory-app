@@ -9,6 +9,8 @@ export type DemoSeed = {
   storageLocation: StorageLocation;
   minQuantity: number;
   note: string;
+  openedOffsetDays?: number | null; // 開封日（今日からのオフセット日数）
+  daysAfterOpening?: number | null; // 開封後の目安日数
 };
 
 export const demoFoods: DemoSeed[] = [
@@ -16,12 +18,12 @@ export const demoFoods: DemoSeed[] = [
   { name: '醤油', category: '調味料', quantity: 1, unit: '本', expiryOffsetDays: 180, storageLocation: '冷蔵庫', minQuantity: 1, note: '開封済' },
   { name: 'みりん', category: '調味料', quantity: 1, unit: '本', expiryOffsetDays: 120, storageLocation: '常温', minQuantity: 1, note: '' },
   { name: '料理酒', category: '調味料', quantity: 1, unit: '本', expiryOffsetDays: 200, storageLocation: '常温', minQuantity: 1, note: '' },
-  { name: '味噌', category: '調味料', quantity: 1, unit: 'パック', expiryOffsetDays: 45, storageLocation: '冷蔵庫', minQuantity: 1, note: '' },
+  { name: '味噌', category: '調味料', quantity: 1, unit: 'パック', expiryOffsetDays: 45, storageLocation: '冷蔵庫', minQuantity: 1, note: '開封済', openedOffsetDays: -10, daysAfterOpening: 30 },
   { name: '塩', category: '調味料', quantity: 1, unit: '袋', expiryOffsetDays: null, storageLocation: '常温', minQuantity: 0, note: '' },
   { name: '砂糖', category: '調味料', quantity: 1, unit: '袋', expiryOffsetDays: null, storageLocation: '常温', minQuantity: 0, note: '' },
   { name: 'オリーブオイル', category: '調味料', quantity: 1, unit: '本', expiryOffsetDays: 90, storageLocation: '常温', minQuantity: 1, note: '' },
   { name: 'ごま油', category: '調味料', quantity: 1, unit: '本', expiryOffsetDays: 60, storageLocation: '常温', minQuantity: 0, note: '' },
-  { name: 'カレー粉', category: '調味料', quantity: 1, unit: '瓶', expiryOffsetDays: 150, storageLocation: '常温', minQuantity: 0, note: 'パウダー' },
+  { name: 'カレー粉', category: '調味料', quantity: 1, unit: '瓶', expiryOffsetDays: 150, storageLocation: '常温', minQuantity: 0, note: 'パウダー・開封済', openedOffsetDays: -100, daysAfterOpening: 60 },
   { name: '鶏ガラの素', category: '調味料', quantity: 1, unit: '袋', expiryOffsetDays: 200, storageLocation: '常温', minQuantity: 1, note: 'パウダー' },
   { name: 'コンソメ', category: '調味料', quantity: 0, unit: '箱', expiryOffsetDays: null, storageLocation: '常温', minQuantity: 1, note: '切れてる' },
   { name: '片栗粉', category: '調味料', quantity: 1, unit: '袋', expiryOffsetDays: null, storageLocation: '常温', minQuantity: 1, note: '' },
@@ -43,7 +45,7 @@ export const demoFoods: DemoSeed[] = [
 
   // 乳製品・卵
   { name: '卵', category: '乳製品・卵', quantity: 6, unit: '個', expiryOffsetDays: 10, storageLocation: '冷蔵庫', minQuantity: 4, note: '' },
-  { name: '牛乳', category: '乳製品・卵', quantity: 1, unit: '本', expiryOffsetDays: 3, storageLocation: '冷蔵庫', minQuantity: 1, note: '' },
+  { name: '牛乳', category: '乳製品・卵', quantity: 1, unit: '本', expiryOffsetDays: 3, storageLocation: '冷蔵庫', minQuantity: 1, note: '開封済', openedOffsetDays: -1, daysAfterOpening: 3 },
   { name: 'バター', category: '乳製品・卵', quantity: 1, unit: '箱', expiryOffsetDays: 50, storageLocation: '冷蔵庫', minQuantity: 0, note: '' },
   { name: 'ヨーグルト', category: '乳製品・卵', quantity: 0, unit: 'パック', expiryOffsetDays: null, storageLocation: '冷蔵庫', minQuantity: 1, note: '' },
 

@@ -29,7 +29,7 @@
 以下は上から順に 1 つずつ進める。同時にやらない。
 
 - [x] PR 確認用プレビューの整備と、デプロイ・確認手順の明文化（#27）。2026-10-11 完了。手順は `docs/SETUP.md` の 5
-- [ ] Vercel インシデント対応（Issue #1）の再開: 本番の値ローテは 2026-10-03 に完了、デモ側が未。手順は `handoff/issues/i1/README.md`
+- [x] Vercel インシデント対応（Issue #1）: 2026-10-11 完了（デモ側の値交換・旧 Gemini キー削除・PR #2 マージ）。運用情報は `handoff/issues/i1/`
 - [ ] Gemini モデル更新（`handoff/ideas/gemini-model.md`、PR #13 の扱いを決める）。gemini-2.5 系の提供終了に備える
 - [x] **Gemini API によるAIレシピ・献立提案**（gemini-2.5-flash-lite、無料枠）
   - `src/app/api/ai/suggest/route.ts` 実装

@@ -119,6 +119,8 @@ UX・設計の気づき:
 
 ## 2026-04-21（セッション5：Vercel 2026-04 セキュリティインシデント対応）
 
+> 2026-10-11 追記: この対応は完了（Issue #1）。当時「Sensitive」と呼んでいた設定は、現在の Vercel UI では「Type: Secret」（Config / Secret の選択式）。現状と運用情報は `handoff/issues/i1/` を参照。
+
 技術メモ:
 
 - **Vercel の Environment Variables は投入時に必ず `Sensitive` マークを ON にする** — Sensitive にすると「読み取り不能」な保管になる。Vercel 2026 年 4 月のインシデントでは Sensitive マーク**なし**の env だけが漏洩対象だった
@@ -131,9 +133,9 @@ UX・設計の気づき:
 
 次回への申し送り:
 
-- 既存 env をすべて Sensitive 化する作業がある（チェックリストと詳細手順は `_incident/` 配下のローカルファイルを参照）
-- 新規に env を追加するとき・既存 env を編集するときは、**毎回 Sensitive ON を確認**するのを習慣化
-- public リポでセキュリティ対応する場合の方針: issue / PR / コミットメッセージに詳細を書かず、`_incident/`（gitignore）で管理し、解消後に完了サマリだけ残してクローズする
+- 既存 env の Secret 化は完了（本番・デモとも。2026-10-11、Issue #1）
+- 新規に env を追加するとき・既存 env を編集するときは、**毎回 Type が Secret になっているか確認**するのを習慣化（NEXT_PUBLIC_* を除く）
+- public リポでセキュリティ対応する場合の方針: issue / PR / コミットメッセージに秘密情報と環境固有の識別子を書かず、詳細な引き継ぎは `handoff/issues/i<N>/` に置く（`_incident/` は廃止）。解消後は Issue に完了サマリを残してクローズする
 
 ---
 

@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Claude Code の worktree。配下の .next/ を走査するとメモリ不足になる（#25）
+    ".claude/**",
   ]),
 ]);
 

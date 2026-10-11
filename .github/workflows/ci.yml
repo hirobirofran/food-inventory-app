@@ -1,0 +1,40 @@
+name: CI
+
+# docs や md だけの変更では動かさない（Issue #28）
+# 注意: main のブランチ保護で CI を必須チェックにすると、docs だけの PR はチェックが
+# 「待機」のままになりマージできない。必須にするときは paths-ignore を外すか、
+# 代わりに「docs だけなら即成功する」ジョブを足す
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - 'handoff/**'
+      - '**/*.md'
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - 'handoff/**'
+      - '**/*.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npx tsc --noEmit
+      # lint は #12 が直ってから足す（main で失敗するため）

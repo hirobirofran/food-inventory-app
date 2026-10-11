@@ -58,7 +58,7 @@
 
 技術メモ:
 
-- Gemini APIのモデル名は世代交代が早い。`gemini-1.5-flash`はすでに404、`gemini-2.5-flash-lite`が現在の最軽量安定版
+- Gemini APIのモデル名は世代交代が早い。`gemini-1.5-flash`はすでに404、`gemini-2.5-flash-lite`は過去に使ったユーザー限定の提供になった（停止日未発表）。2026-10 時点の最軽量安定版は`gemini-3.5-flash-lite`。無料枠の対象かは公式料金ページの Free Tier 列で分かる
 - AI Studioの無料枠キーは「請求先アカウントなし」のプロジェクトで作成する（`gen-lang-client-*`形式）
 - Google Cloudプロジェクトに紐づいたAPIキーはprepayment credits扱いになり、無料枠と別管理
 - レート制限（10回/分）に引っかかると429エラー。テスト時は連続リクエストを避ける

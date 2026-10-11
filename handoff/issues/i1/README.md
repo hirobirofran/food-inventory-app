@@ -1,6 +1,6 @@
 # Issue #1 Vercel 2026-04 インシデント対応: 引き継ぎ
 
-最終更新: 2026-10-03 00:50（本番の値ローテ完了、デモは未）
+最終更新: 2026-10-11（本番の値ローテ完了、デモは値が未交換。デモの変数は Preview にも適用済み）
 記録コメント: https://github.com/hirobirofran/food-inventory-app/issues/1#issuecomment-5956035186
 
 ## 今どこまで終わっているか
@@ -8,9 +8,12 @@
 | 変数 | 本番 food-inventory-app | デモ food-inventory-demo |
 |---|---|---|
 | GOOGLE_PRIVATE_KEY / GOOGLE_SPREADSHEET_ID / GOOGLE_SERVICE_ACCOUNT_EMAIL | 済（2026-04-22、Secret） | 済（2026-04-22、Secret） |
-| AUTH_COOKIE_SECRET | 済（2026-10-03、Secret） | 未（4/19 の値のまま） |
-| SITE_PASSWORD | 済（2026-10-03、Secret） | 未（4/19 の値のまま） |
-| GEMINI_API_KEY | 済（2026-10-03、新キー、Secret） | 未（旧キーのまま） |
+| AUTH_COOKIE_SECRET | 済（2026-10-03、Secret） | 未（4/19 の値のまま、型も readable のまま） |
+| SITE_PASSWORD | 済（2026-10-03、Secret） | 値は未（4/19 のまま）。型は 2026-10-11 に Secret へ変更済み |
+| GEMINI_API_KEY | 済（2026-10-03、新キー、Secret） | 値は未（旧キーのまま）。型は 2026-10-11 に Secret へ変更済み |
+
+- 2026-10-11 にデモの 7 変数すべてを Production + Preview に適用した（Issue #27、PR 確認用プレビューのため）。値を交換するときは 1 行を直せば両環境に効く
+- デモ側の交換後は、デモ用プレビューも新しいデプロイで新しい値になる（既存プレビューには効かない）
 
 - 本番は Redeploy 済み。新パスワードでログイン、在庫登録、AI 提案まで実機確認 OK
 - GCP のサービスアカウント鍵は 2026-04-22 発行の 1 本のみ（旧鍵は削除済み）

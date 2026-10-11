@@ -4,7 +4,7 @@
 
 | ファイル | 一言 | 状態 |
 |---|---|---|
-| `launch-plan.md` | チーズ登録から始める実用化の残り 4 ステップ | Step 0 完了、Step 1 から |
+| `launch-plan.md` | チーズ登録から始める実用化の残り 4 ステップ | Step 1 完了、Step 2 から（順番は TASKS.md 優先） |
 | `passkey-login.md` | パスワードをやめて Google アカウントかパスキーで入る | 未着手 |
 | `vertex-ai-keyless.md` | Vertex AI 経由にして特典クレジットを使う。WIF でキー無し | 未着手 |
 | `gemini-model.md` | Gemini SDK とモデルの更新（PR #13）、3.8 Flash の検討 | PR あり、未マージ |

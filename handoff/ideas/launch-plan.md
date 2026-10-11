@@ -1,6 +1,6 @@
 # 実用化の残りステップ（チーズ登録から始める）
 
-状態: Step 0 は 2026-10-03 に完了（本番でチーズを登録し、一覧と AI 提案を確認）。Step 1 から。
+状態: Step 0 は 2026-10-03、Step 1 は 2026-10-11 までに完了（本番で実在庫の登録を開始し、気づきを Issue #14〜#28 に記録）。Step 2 から。ただし順番は `docs/TASKS.md` の次にやること（Issue #1 → Gemini 更新）を優先する。
 図解版: https://claude.ai/artifact/7zqdR7iSvmbD7ZGNxZtBi5 （オーナー専用リンク）
 
 ## Step 1 運用開始（オーナー、30 分）
@@ -12,7 +12,8 @@
 ## Step 2 安定化（Claude Code、1〜2 セッション）
 - PR #13（セキュリティ修正 + Gemini SDK 更新）→ PR #10（開封日と開封後期限）の順で main へ
 - 保存失敗時のエラー表示を追加（今は無言で失敗する）
-- 二重送信ガード（`double-submit-guard.md`）
+- 二重送信ガード（Issue #24）
+- PR #10 の確認はデモ用プレビューでできるようになった（`docs/SETUP.md` の 5）
 - 完了条件: 本番で AI 提案が返る。チーズに開封日を入れると開封後期限で警告が出る
 
 ## Step 3 PWA 化（Claude Code、1 セッション）
@@ -21,7 +22,7 @@
 - 完了条件: iPhone と Android のホーム画面からアドレスバー無しで起動する
 - スコープ外: オフライン動作、Push 通知
 
-## Step 4 docs 更新（Claude Code、30 分）
+## Step 4 docs 更新（Claude Code、30 分。Issue #19）
 - CLAUDE.md の「現在の状態」「技術スタック」、SETUP.md の環境変数一覧、ARCHITECTURE.md の AI 選定理由
 - いずれも「Sheets 未実装」「Claude API 利用」と書かれているが、実際は Sheets 連携済みで AI は Gemini
 - 完了条件: 新しいセッションの Claude Code が Sheets 連携を未実装と誤認しない

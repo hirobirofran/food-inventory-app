@@ -44,6 +44,8 @@
 | H | minQuantity | number | `1` |
 | I | note | string | `開封済み` |
 
+`quantity` は同じ品目の合計個数、`expiryDate` は最も近い期限を入れる。消費したら個数を減らし、次の期限に書き換える。個数ごとの期限（ロット管理）は `handoff/ideas/item-data-model.md` を参照。
+
 ### カテゴリ
 `野菜・果物` / `肉・魚` / `乳製品・卵` / `調味料` / `飲み物` / `冷凍食品` / `その他`
 

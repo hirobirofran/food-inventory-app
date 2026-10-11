@@ -37,4 +37,4 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npx tsc --noEmit
-      # lint は #12 が直ってから足す（main で失敗するため）
+      - run: npm run lint

@@ -1,6 +1,7 @@
 'use client';
 
 import { FoodItem } from '@/types/food';
+import { formatQuantity } from '@/lib/format';
 
 type Props = {
   foods: FoodItem[];
@@ -59,7 +60,7 @@ export function ShoppingList({ foods, onUpdateQuantity }: Props) {
                 </div>
                 <div className="mt-1 flex items-center justify-between">
                   <span className="text-xs text-gray-500">
-                    最低 {food.minQuantity}{food.unit} 必要 → あと <strong>{needed.toFixed(1)}{food.unit}</strong> 買う
+                    最低 {food.minQuantity}{food.unit} 必要 → あと <strong>{formatQuantity(needed)}{food.unit}</strong> 買う
                   </span>
                   <button
                     onClick={() => onUpdateQuantity(food.id, food.minQuantity)}

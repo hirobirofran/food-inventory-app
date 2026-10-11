@@ -22,7 +22,10 @@ export default function Home() {
         if (!res.ok) throw new Error('データの取得に失敗しました');
         return res.json() as Promise<FoodItem[]>;
       })
-      .then(data => setFoods(data))
+      .then(data => {
+        setFoods(data);
+        setError(null);
+      })
       .catch(e => setError(e instanceof Error ? e.message : 'エラーが発生しました'))
       .finally(() => setLoading(false));
   }, []);

@@ -16,18 +16,15 @@ export default function Home() {
   const [tab, setTab] = useState<Tab>('inventory');
   const [showAddModal, setShowAddModal] = useState(false);
 
-  const fetchFoods = useCallback(async () => {
-    try {
-      setError(null);
-      const res = await fetch('/api/foods');
-      if (!res.ok) throw new Error('データの取得に失敗しました');
-      const data = await res.json();
-      setFoods(data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'エラーが発生しました');
-    } finally {
-      setLoading(false);
-    }
+  const fetchFoods = useCallback(() => {
+    fetch('/api/foods')
+      .then(res => {
+        if (!res.ok) throw new Error('データの取得に失敗しました');
+        return res.json() as Promise<FoodItem[]>;
+      })
+      .then(data => setFoods(data))
+      .catch(e => setError(e instanceof Error ? e.message : 'エラーが発生しました'))
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => { fetchFoods(); }, [fetchFoods]);
@@ -101,7 +98,7 @@ export default function Home() {
             <p className="font-medium">接続エラー</p>
             <p className="mt-1">{error}</p>
             <button
-              onClick={fetchFoods}
+              onClick={() => { setError(null); fetchFoods(); }}
               className="mt-3 text-red-600 underline text-xs"
             >
               再読み込み

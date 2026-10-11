@@ -100,6 +100,39 @@ Vercelのダッシュボードで環境変数（`.env.local` の内容）を設�
 
 ---
 
+## 5. デプロイと確認の運用
+
+### 環境の定義
+
+| 名前 | Vercel プロジェクト | 固定 URL | 乗るコード | データ |
+|---|---|---|---|---|
+| 本番 | food-inventory-app | food-inventory-app-nu.vercel.app | main | 本番シート |
+| デモ | food-inventory-demo | food-inventory-demo.vercel.app | main | デモシート（`npm run seed:demo` で入れ直せる） |
+| プレビュー | 両プロジェクトに自動生成 | PR ごとの一時 URL | PR のブランチ | デモ用だけ動く（下記） |
+
+本番とデモは同じ main から同時にデプロイされる。push 1 回で両方が更新されるので、「デモで試してから本番」はできない。デモと本番の違いは環境変数だけ（シート、パスワード、`NEXT_PUBLIC_APP_ENV=demo` のバナー）。
+
+### PR の確認手順
+
+1. ブランチを push して PR を作る。Vercel が本番用とデモ用のプレビューを 1 つずつ作る
+2. 確認は **デモ用プレビュー** で行う。PR の Vercel ボットコメントにある food-inventory-demo 側の「Visit Preview」を開く
+3. Vercel にログインする（Deployment Protection のため。固定 URL は対象外）。ログインできない端末では、Vercel の共有リンクを発行して開く
+4. アプリのログインはデモのパスワードを使う
+5. 動作を確認したら PR をマージする。main が本番とデモに自動デプロイされる
+
+### 環境変数の適用範囲
+
+- デモプロジェクト: 全変数を Production と Preview の両方に適用する。プレビューはデモのシートとデモの鍵で動く
+- 本番プロジェクト: Production のみ。本番用プレビューは意図的に動かさない（本番データに触らせないため）。確認には使わない
+- 変数を変えても、反映されるのは新しいデプロイだけ。既存のプレビューはダッシュボードから Redeploy する
+- 値はダッシュボードで直接入力する。チャットや CLI の引数に貼らない
+
+### 本番だけ戻したいとき
+
+main に push すると両方に出る。本番だけ前の状態に戻すときは、Vercel ダッシュボードの Deployments で前のデプロイを Rollback する。
+
+---
+
 ## 注意事項
 
 - `.env.local` は絶対にGitHubにコミットしない（`.gitignore` に含まれているが要確認）

@@ -65,7 +65,7 @@
 - [ ] 保存ボタン連打で複数登録される問題（#24）
 - [ ] eslint が .claude/worktrees を走査してメモリ不足になる問題（#25）
 - [ ] AI レシピの提案結果をタブ移動で消さない（#26）
-- [x] GitHub Actions で npm test と型チェックを CI 化する（#28、PR #29、2026-10-11）。lint は #12 の後
+- [x] GitHub Actions で npm test と型チェックを CI 化する（#28、PR #29、2026-10-11）。lint は #12 の PR で追加
 
 ---
 

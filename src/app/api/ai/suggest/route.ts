@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { NextResponse } from 'next/server';
 import { FoodItem, getExpiryStatus } from '@/types/food';
 
@@ -20,8 +20,7 @@ export async function POST(request: Request) {
   try {
     const foods: FoodItem[] = await request.json();
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
     const urgentFoods = foods.filter(f => getExpiryStatus(f.expiryDate) === 'expired' || getExpiryStatus(f.expiryDate) === 'warning');
     const availableFoods = foods.filter(f => f.quantity > 0);
@@ -64,8 +63,11 @@ ${inventoryText || '（食材なし）'}
   "message": "全体的な一言コメント"
 }`;
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const result = await ai.models.generateContent({
+      model: 'gemini-3.5-flash-lite',
+      contents: prompt,
+    });
+    const text = result.text ?? '';
 
     // JSONを抽出（```json ... ``` で囲まれている場合も対応）
     const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/(\{[\s\S]*\})/);

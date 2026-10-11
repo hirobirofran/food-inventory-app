@@ -8,7 +8,6 @@
 | `passkey-login.md` | パスワードをやめて Google アカウントかパスキーで入る | 未着手 |
 | `vertex-ai-keyless.md` | Vertex AI 経由にして特典クレジットを使う。WIF でキー無し | 未着手 |
 | `gemini-model.md` | Gemini SDK とモデルの更新（PR #13）、3.8 Flash の検討 | PR あり、未マージ |
-| `double-submit-guard.md` | 在庫追加の二重送信バグ | Issue 化予定 |
 | `receipt-ocr.md` | レシートを撮って一括登録。財布に Max 特典の Claude API クレジットを使う案 | 未着手 |
 | `item-data-model.md` | ロット別期限・再購入予定日・最終更新者・メーカー名の扱い | 未着手 |
 | `category-redesign.md` | カテゴリの役割と分類の見直し（糖質制限の代替品） | 未着手 |

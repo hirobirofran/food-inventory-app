@@ -20,7 +20,9 @@ export async function POST(request: Request) {
   try {
     const foods: FoodItem[] = await request.json();
 
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
+    const ai = new GoogleGenAI({ apiKey });
 
     const urgentFoods = foods.filter(f => getExpiryStatus(f.expiryDate) === 'expired' || getExpiryStatus(f.expiryDate) === 'warning');
     const availableFoods = foods.filter(f => f.quantity > 0);
@@ -67,11 +69,16 @@ ${inventoryText || '（食材なし）'}
       model: 'gemini-3.5-flash-lite',
       contents: prompt,
     });
-    const text = result.text ?? '';
+    const finishReason = result.candidates?.[0]?.finishReason;
+    const text = result.text;
+    if (!text) {
+      const blockReason = result.promptFeedback?.blockReason;
+      throw new Error(`Empty response (finishReason=${finishReason}, blockReason=${blockReason})`);
+    }
 
     // JSONを抽出（```json ... ``` で囲まれている場合も対応）
     const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/(\{[\s\S]*\})/);
-    if (!jsonMatch) throw new Error('Invalid response format');
+    if (!jsonMatch) throw new Error(`Invalid response format (finishReason=${finishReason})`);
 
     const parsed: SuggestResponse = JSON.parse(jsonMatch[1]);
     return NextResponse.json(parsed);

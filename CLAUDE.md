@@ -58,7 +58,7 @@ Issue を起票してから PR を作る。Issue と PR の本文に目的とゴ
 
 1. ドラフト PR を作る前に `superpowers:requesting-code-review` でセルフレビューする
 2. 指摘は `superpowers:receiving-code-review` で採否を判断する
-3. ドラフト PR を作ると Codex の自動レビューが走る。指摘に対応する
+3. PR をレビュー準備完了（Ready for review）にすると Codex の自動レビューが走る（ドラフトのままでは走らない）。指摘に対応する
 4. ドラフト PR の後に `/code-review <PR 番号> --comment` を実行する
 5. オーナーが PR をレビューし、マージする
 

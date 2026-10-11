@@ -31,7 +31,7 @@
 - [x] PR 確認用プレビューの整備と、デプロイ・確認手順の明文化（#27）。2026-10-11 完了。手順は `docs/SETUP.md` の 5
 - [x] Vercel インシデント対応（Issue #1）: 2026-10-11 完了（デモ側の値交換・旧 Gemini キー削除・PR #2 マージ）。運用情報は `handoff/issues/i1/`
 - [ ] Gemini SDK とモデルの更新（#31、`gemini-3.5-flash-lite` + `@google/genai`）。PR #13 は 2026-10-11 に閉じ、目的ごとに 3 つへ分割: #31 → 依存更新（#31 のマージ後に Issue を起票）→ lint 修正（#12）。1 本ずつ進める
-- [x] **Gemini API によるAIレシピ・献立提案**（gemini-2.5-flash-lite、無料枠）
+- [x] **Gemini API によるAIレシピ・献立提案**（gemini-3.5-flash-lite、無料枠。2026-10 に 2.5 から更新、#31）
   - `src/app/api/ai/suggest/route.ts` 実装
   - 在庫リストをプロンプトに埋め込む
   - オートクッカービストロ・ビストロレンジ・グルラボを使ったレシピを優先する指示

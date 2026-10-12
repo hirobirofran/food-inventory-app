@@ -33,9 +33,11 @@ const todayFormatter = new Intl.DateTimeFormat('en-CA', {
   day: '2-digit',
 });
 
+// 'YYYY-MM-DD' か 'YYYY/MM/DD' で始まる文字列を暦日として読む。それ以外は NaN
 function toUtcDay(dateString: string): number {
-  const [y, m, d] = dateString.split(/[-/]/).map(Number);
-  return Date.UTC(y, m - 1, d);
+  const m = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/.exec(dateString);
+  if (!m) return NaN;
+  return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
 }
 
 // 実行環境の TZ に関係なく、Asia/Tokyo の暦日どうしの差（日数）を返す

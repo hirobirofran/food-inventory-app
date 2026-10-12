@@ -34,7 +34,7 @@ const todayFormatter = new Intl.DateTimeFormat('en-CA', {
 });
 
 function toUtcDay(dateString: string): number {
-  const [y, m, d] = dateString.split('-').map(Number);
+  const [y, m, d] = dateString.split(/[-/]/).map(Number);
   return Date.UTC(y, m - 1, d);
 }
 

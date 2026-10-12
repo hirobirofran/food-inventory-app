@@ -25,6 +25,12 @@ describe('期限判定は Asia/Tokyo の暦日で行う', () => {
       expect(getExpiryLabel('2026-09-27')).toBe('今日まで');
     });
 
+    it('YYYY/MM/DD 形式（シート手編集）も同じ判定になる', () => {
+      setNow();
+      expect(getExpiryStatus('2026/09/26')).toBe('expired');
+      expect(getExpiryLabel('2026/09/27')).toBe('今日まで');
+    });
+
     it('3日後は warning、4日後は ok / あと4日', () => {
       setNow();
       expect(getExpiryStatus('2026-09-30')).toBe('warning');

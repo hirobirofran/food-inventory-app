@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { FoodFormModal } from './FoodFormModal';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 function deferred() {
   let resolve!: () => void;
@@ -21,13 +24,16 @@ function setup(onSave: () => Promise<void>) {
 }
 
 describe('FoodFormModal の送信', () => {
-  it('保存ボタンを 2 回押しても onSave は 1 回だけ呼ばれる', async () => {
+  it('保存を 2 回送信しても onSave は 1 回だけ呼ばれる', async () => {
     const d = deferred();
     const onSave = vi.fn(() => d.promise);
     const button = setup(onSave);
+    const form = button.closest('form') as HTMLFormElement;
 
-    fireEvent.click(button);
-    fireEvent.click(button);
+    // ボタンの click だと 1 回目の後に disabled になって 2 回目が届かず、
+    // submittingRef のガードを通らない。form の submit を直接 2 回送る
+    fireEvent.submit(form);
+    fireEvent.submit(form);
     expect(onSave).toHaveBeenCalledTimes(1);
 
     await act(async () => d.resolve());

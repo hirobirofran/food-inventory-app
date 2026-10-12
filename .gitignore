@@ -45,3 +45,6 @@ next-env.d.ts
 
 # incident response work space (non-public notes, checklists, scratch)
 /_incident/
+
+# Claude Code のサブエージェント用ワークツリー
+.claude/worktrees/

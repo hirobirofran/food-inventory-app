@@ -66,4 +66,27 @@ describe('POST /api/ai/suggest', () => {
     expect(res.status).toBe(200);
     expect(vi.getTimerCount()).toBe(0);
   });
+
+  it.each([
+    ['recipes キーが無い', { shopping: [], message: 'ok' }],
+    ['recipes が文字列', { recipes: 'oops', shopping: [], message: 'ok' }],
+    ['recipes がオブジェクト', { recipes: {}, shopping: [], message: 'ok' }],
+    ['トップレベルが null', null],
+    ['トップレベルが配列', []],
+  ])('返事の形が不正（%s）なら 500 とエラー本文を返す', async (_name, body) => {
+    generateContent.mockResolvedValue({
+      // コードフェンス付きにして、null や配列でも JSON.parse まで到達させる
+      text: '```json\n' + JSON.stringify(body) + '\n```',
+      candidates: [{ finishReason: 'STOP' }],
+    });
+
+    const res = await POST(makeRequest());
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: 'AI提案の生成に失敗しました' });
+    expect(vi.mocked(console.error)).toHaveBeenCalledWith(
+      expect.stringContaining('AI suggest error'),
+      expect.objectContaining({ message: expect.stringContaining('Invalid response shape') }),
+    );
+  });
 });

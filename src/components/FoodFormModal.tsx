@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Category, FoodItem, StorageLocation } from '@/types/food';
 
 const CATEGORIES: Category[] = [
@@ -11,7 +11,7 @@ const LOCATIONS: StorageLocation[] = ['冷蔵庫', '冷凍庫', '常温', 'そ�
 
 type Props = {
   item?: FoodItem;
-  onSave: (item: Omit<FoodItem, 'id'>) => void;
+  onSave: (item: Omit<FoodItem, 'id'>) => void | Promise<void>;
   onClose: () => void;
 };
 
@@ -27,12 +27,27 @@ export function FoodFormModal({ item, onSave, onClose }: Props) {
     note: item?.note ?? '',
   });
 
-  function handleSubmit(e: React.FormEvent) {
+  const submittingRef = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    onSave({
-      ...form,
-      expiryDate: form.expiryDate || null,
-    });
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await onSave({
+        ...form,
+        expiryDate: form.expiryDate || null,
+      });
+    } catch {
+      setError('保存に失敗しました。もう一度お試しください');
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -143,6 +158,12 @@ export function FoodFormModal({ item, onSave, onClose }: Props) {
             />
           </div>
 
+          {error && (
+            <p className="text-sm text-red-600" role="alert">
+              {error}
+            </p>
+          )}
+
           <div className="flex gap-3 pt-2">
             <button
               type="button"
@@ -153,7 +174,8 @@ export function FoodFormModal({ item, onSave, onClose }: Props) {
             </button>
             <button
               type="submit"
-              className="flex-1 py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl font-medium"
+              disabled={submitting}
+              className="flex-1 py-3 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white rounded-xl font-medium"
             >
               保存
             </button>

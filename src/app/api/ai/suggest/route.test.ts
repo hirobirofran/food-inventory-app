@@ -1,14 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Gemini SDK は実際には呼ばず、abortSignal を尊重する最小限のモックで差し替える
-const generateContent = vi.fn();
+// vi.mock は import より前に巻き上げられるので、参照する変数も vi.hoisted で先に作る
+const { generateContent } = vi.hoisted(() => ({ generateContent: vi.fn() }));
 vi.mock('@google/genai', () => ({
   GoogleGenAI: class {
     models = { generateContent };
   },
 }));
 
-import { POST } from './route';
+import { GEMINI_TIMEOUT_MS, POST } from './route';
 
 function makeRequest() {
   return new Request('http://localhost/api/ai/suggest', {
@@ -22,6 +23,8 @@ describe('POST /api/ai/suggest', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.stubEnv('GEMINI_API_KEY', 'test-key');
+    // restoreMocks は spyOn しか戻さないので、mockImplementation は毎回消す
+    generateContent.mockReset();
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
@@ -30,7 +33,7 @@ describe('POST /api/ai/suggest', () => {
     vi.unstubAllEnvs();
   });
 
-  it('Gemini が 30 秒応答しないとき 500 を返す', async () => {
+  it('Gemini が応答しないとき、上限時間でタイムアウトとして 500 を返す', async () => {
     // 応答しない Gemini: abortSignal が中断されたときだけ reject する
     generateContent.mockImplementation(
       ({ config }: { config?: { abortSignal?: AbortSignal } }) =>
@@ -40,10 +43,16 @@ describe('POST /api/ai/suggest', () => {
     );
 
     const responsePromise = POST(makeRequest());
-    await vi.advanceTimersByTimeAsync(30_000);
+    await vi.advanceTimersByTimeAsync(GEMINI_TIMEOUT_MS);
 
     const res = await responsePromise;
     expect(res.status).toBe(500);
+    // Gemini まで到達した上でタイムアウトしたこと（手前の失敗で 500 になったのではないこと）
+    expect(generateContent).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(console.error)).toHaveBeenCalledWith(
+      `AI suggest error (${GEMINI_TIMEOUT_MS}ms):`,
+      expect.objectContaining({ message: `Gemini timed out after ${GEMINI_TIMEOUT_MS}ms` }),
+    );
   });
 
   it('Gemini が時間内に応答すれば 200 を返し、タイマーを残さない', async () => {

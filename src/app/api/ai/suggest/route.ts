@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { NextResponse } from 'next/server';
-import { FoodItem, getExpiryStatus } from '@/types/food';
+import { FoodItem, getEffectiveExpiry, getExpiryStatus } from '@/types/food';
 
 export type Recipe = {
   title: string;
@@ -24,7 +24,10 @@ export async function POST(request: Request) {
     if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
     const ai = new GoogleGenAI({ apiKey });
 
-    const urgentFoods = foods.filter(f => getExpiryStatus(f.expiryDate) === 'expired' || getExpiryStatus(f.expiryDate) === 'warning');
+    const urgentFoods = foods.filter(f => {
+      const status = getExpiryStatus(getEffectiveExpiry(f).date);
+      return status === 'expired' || status === 'warning';
+    });
     const availableFoods = foods.filter(f => f.quantity > 0);
 
     const inventoryText = availableFoods.map(f =>

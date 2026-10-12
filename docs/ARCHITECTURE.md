@@ -43,6 +43,10 @@
 | G | storageLocation | string | `冷蔵庫` |
 | H | minQuantity | number | `1` |
 | I | note | string | `開封済み` |
+| J | openedDate | date (YYYY-MM-DD) / 空欄可 | `2026-04-15` |
+| K | daysAfterOpening | number / 空欄可 | `3` |
+
+`openedDate` と `daysAfterOpening` は既存データ後方互換のため空欄可（未入力なら `null` 扱い）。実際の期限は `getEffectiveExpiry()`（`src/types/food.ts`）が `min(印字の期限, openedDate + daysAfterOpening)` として算出し、一覧の色分け・並び順・期限バッジ・AI提案の「期限が近い食材」判定はすべてこの関数の結果を使う。
 
 `quantity` は同じ品目の合計個数、`expiryDate` は最も近い期限を入れる。消費したら個数を減らし、次の期限に書き換える。個数ごとの期限（ロット管理）は `handoff/ideas/item-data-model.md` を参照。
 

@@ -17,6 +17,8 @@ export const mockFoods: FoodItem[] = [
     storageLocation: '冷蔵庫',
     minQuantity: 1,
     note: '',
+    openedDate: null,
+    daysAfterOpening: null,
   },
   {
     id: '2',
@@ -28,6 +30,8 @@ export const mockFoods: FoodItem[] = [
     storageLocation: '冷蔵庫',
     minQuantity: 6,
     note: '',
+    openedDate: null,
+    daysAfterOpening: null,
   },
   {
     id: '3',
@@ -39,6 +43,8 @@ export const mockFoods: FoodItem[] = [
     storageLocation: '冷蔵庫',
     minQuantity: 0,
     note: '',
+    openedDate: null,
+    daysAfterOpening: null,
   },
   {
     id: '4',
@@ -50,6 +56,8 @@ export const mockFoods: FoodItem[] = [
     storageLocation: '冷凍庫',
     minQuantity: 1,
     note: '冷凍済み',
+    openedDate: null,
+    daysAfterOpening: null,
   },
   {
     id: '5',
@@ -61,6 +69,8 @@ export const mockFoods: FoodItem[] = [
     storageLocation: '常温',
     minQuantity: 2,
     note: '',
+    openedDate: null,
+    daysAfterOpening: null,
   },
   {
     id: '6',
@@ -71,7 +81,9 @@ export const mockFoods: FoodItem[] = [
     expiryDate: daysFromToday(180),
     storageLocation: '常温',
     minQuantity: 1,
-    note: '',
+    note: '開封済み',
+    openedDate: daysFromToday(-60),
+    daysAfterOpening: 90, // 開封後の期限（あと30日）が印字期限より早い
   },
   {
     id: '7',
@@ -83,6 +95,8 @@ export const mockFoods: FoodItem[] = [
     storageLocation: '冷蔵庫',
     minQuantity: 0,
     note: '',
+    openedDate: null,
+    daysAfterOpening: null,
   },
   {
     id: '8',
@@ -94,5 +108,7 @@ export const mockFoods: FoodItem[] = [
     storageLocation: '冷蔵庫',
     minQuantity: 1,
     note: '',
+    openedDate: null,
+    daysAfterOpening: null,
   },
 ];

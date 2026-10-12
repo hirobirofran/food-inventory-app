@@ -38,7 +38,7 @@ export default function Home() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    if (!res.ok) return;
+    if (!res.ok) throw new Error('食材の追加に失敗しました');
     const newFood = await res.json();
     setFoods(prev => [...prev, newFood]);
     setShowAddModal(false);

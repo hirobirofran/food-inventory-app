@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Category, FoodItem, StorageLocation } from '@/types/food';
 
 const CATEGORIES: Category[] = [
@@ -11,7 +11,7 @@ const LOCATIONS: StorageLocation[] = ['冷蔵庫', '冷凍庫', '常温', 'そ�
 
 type Props = {
   item?: FoodItem;
-  onSave: (item: Omit<FoodItem, 'id'>) => void;
+  onSave: (item: Omit<FoodItem, 'id'>) => void | Promise<void>;
   onClose: () => void;
 };
 
@@ -27,12 +27,28 @@ export function FoodFormModal({ item, onSave, onClose }: Props) {
     note: item?.note ?? '',
   });
 
-  function handleSubmit(e: React.FormEvent) {
+  const submittingRef = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    onSave({
-      ...form,
-      expiryDate: form.expiryDate || null,
-    });
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await onSave({
+        ...form,
+        expiryDate: form.expiryDate || null,
+      });
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : '保存に失敗しました');
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -40,7 +56,7 @@ export function FoodFormModal({ item, onSave, onClose }: Props) {
       <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl p-5 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold">{item ? '食材を編集' : '食材を追加'}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+          <button onClick={onClose} disabled={submitting} className="text-gray-400 hover:text-gray-600 disabled:opacity-50 text-2xl leading-none">&times;</button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -143,17 +159,25 @@ export function FoodFormModal({ item, onSave, onClose }: Props) {
             />
           </div>
 
+          {error && (
+            <p className="text-sm text-red-600" role="alert">
+              {error}
+            </p>
+          )}
+
           <div className="flex gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-3 border border-gray-300 rounded-xl text-gray-700 font-medium"
+              disabled={submitting}
+              className="flex-1 py-3 border border-gray-300 rounded-xl text-gray-700 font-medium disabled:opacity-50"
             >
               キャンセル
             </button>
             <button
               type="submit"
-              className="flex-1 py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl font-medium"
+              disabled={submitting}
+              className="flex-1 py-3 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white rounded-xl font-medium"
             >
               保存
             </button>

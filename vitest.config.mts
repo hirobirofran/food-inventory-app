@@ -3,9 +3,12 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   resolve: {
+    // tsconfig.json の paths（"@/*": ["./src/*"]）と揃える
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
   test: {
-    environment: 'jsdom',
+    include: ['src/**/*.test.{ts,tsx}'],
+    setupFiles: ['./vitest.setup.ts'],
+    restoreMocks: true,
   },
 });

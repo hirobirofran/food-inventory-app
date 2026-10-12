@@ -42,7 +42,8 @@ export function FoodFormModal({ item, onSave, onClose }: Props) {
         ...form,
         expiryDate: form.expiryDate || null,
       });
-    } catch {
+    } catch (e) {
+      console.error(e);
       setError('保存に失敗しました。もう一度お試しください');
     } finally {
       submittingRef.current = false;

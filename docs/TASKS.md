@@ -34,8 +34,8 @@
 - [x] lint 修正（#12、#25）と CI への lint 追加（PR #38、2026-10-11）。`npm run lint` は `--max-warnings 0` で warning も失敗にする。派生 Issue: #39（再読み込み中のスピナー）、#40（fetch の打ち切り）
 - [x] 保存ボタン連打で同じ食材が重複登録される問題（#24、PR #41、2026-10-12 マージ）。オーナーがデモのプレビューで連打を確認済み。派生 Issue: #42（編集・削除の無言失敗）、#43（テスト基盤）、#44（追加 API の冪等化）、#45（アクセシビリティ 2 件）
 - [x] コンポーネントのテスト基盤（testing-library + jsdom）を入れ、#24 の連打ガードをテストで証明する（#43、PR #46、2026-10-12 マージ）。テスト 11 件。jsdom はテストファイルの docblock で指定、cleanup は `vitest.setup.ts`。Vercel プレビューの断続的な失敗は `handoff/ideas/vercel-git-retrieval-failure.md`
-- [ ] **AI 提案の Gemini 呼び出しにタイムアウトを付ける（#35）← 進行中: PR #47 がオーナーレビュー待ち**（2026-10-12。セルフレビュー（Important 2 件対応）・Codex（指摘なし）・/code-review 7 件（6 件対応、1 件は派生 Issue #48）済み。完了条件 2 つ目「久々の 1 回目の原因」は再現条件不明のため確認外とし（オーナー決定）、`handoff/ideas/ai-first-call-error.md` に記録。マージ後にこの行を [x] にする）
-- [ ] AI 提案 API の返事の JSON 検証（#33）
+- [x] AI 提案の Gemini 呼び出しにタイムアウトを付ける（#35、PR #47、2026-10-12 マージ）。`abortSignal` で合計 30 秒、`maxDuration = 60`、タイムアウトは `Gemini timed out after 30000ms` としてログに経過 ms 付きで出る。「久々の 1 回目」のエラーは再現条件不明のため確認外とし `handoff/ideas/ai-first-call-error.md` に記録。派生 Issue: #48（在庫テキストの O(n²)）
+- [ ] **AI 提案 API の返事の JSON 検証（#33）← 次の 1 本**
 - [ ] 期限判定の日付が UTC 解釈でずれる問題（#11）
 - [ ] 依存更新（#37。npm audit、PR #13 の分割 2 本目）。着手時に npm audit を取り直し、更新・削除する一覧をオーナーに見せてから進める。AI 提案の残件は #34・#36
 - [ ] PR #10（#9 開封日と開封後の期限）はセルフレビュー・Codex・/code-review が未実施。順番が来たらパイプラインを通す

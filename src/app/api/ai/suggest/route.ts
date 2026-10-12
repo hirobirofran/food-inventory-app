@@ -106,6 +106,13 @@ ${inventoryText || '（食材なし）'}
     if (!jsonMatch) throw new Error(`Invalid response format (finishReason=${finishReason})`);
 
     const parsed: SuggestResponse = JSON.parse(jsonMatch[1]);
+    if (
+      !parsed ||
+      !Array.isArray(parsed.recipes) ||
+      (parsed.shopping != null && !Array.isArray(parsed.shopping))
+    ) {
+      throw new Error(`Invalid response shape: ${jsonMatch[1].slice(0, 200)}`);
+    }
     return NextResponse.json(parsed);
   } catch (error) {
     console.error(`AI suggest error (${Date.now() - startedAt}ms):`, error);

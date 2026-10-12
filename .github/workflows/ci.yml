@@ -4,6 +4,8 @@ name: CI
 # 注意: main のブランチ保護で CI を必須チェックにすると、docs だけの PR はチェックが
 # 「待機」のままになりマージできない。必須にするときは paths-ignore を外すか、
 # 代わりに「docs だけなら即成功する」ジョブを足す
+# 注意 2: pull_request では直近のコミットではなく PR 全体の差分（base...head）で判定される。
+# コードを含む PR に docs だけのコミットを足しても CI は走る（仕様どおり。2026-10-12 に確認）
 on:
   pull_request:
     branches: [main]

@@ -131,6 +131,18 @@ Vercelのダッシュボードで環境変数（`.env.local` の内容）を設�
 
 main に push すると両方に出る。本番だけ前の状態に戻すときは、Vercel ダッシュボードの Deployments で前のデプロイを Rollback する。
 
+## 6. テスト
+
+```bash
+npm test      # vitest を一度だけ実行（CI と同じ）
+npx vitest    # 変更を監視して再実行
+```
+
+- 純粋関数のテストは `src/lib/*.test.ts`（Node 環境で動く）
+- コンポーネントのテストは `src/components/*.test.tsx`。先頭に `// @vitest-environment jsdom` を書くと jsdom に描画して操作できる（`@testing-library/react`）。例: `src/components/FoodFormModal.test.tsx`
+- 各テスト後の DOM の片付けは `vitest.setup.ts` が行い、モックは `restoreMocks: true` で自動復元される。設定は `vitest.config.mts`
+- CI（`.github/workflows/ci.yml`）は `npm ci` → `npm test` → `npx tsc --noEmit` → `npm run lint` を順に実行する。docs だけの変更では動かない
+
 ---
 
 ## 注意事項

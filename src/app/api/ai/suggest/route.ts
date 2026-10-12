@@ -16,7 +16,35 @@ export type SuggestResponse = {
   message: string;
 };
 
+// Vercel の関数の上限（秒）。既定（300 秒）に頼らず、下の GEMINI_TIMEOUT_MS より長いことをここで保証する
+export const maxDuration = 60;
+
+// Gemini の応答を待つ上限。超えたら中断して 500 を返す。
+// httpOptions.timeout は SDK のリトライ 1 回ごとの上限なので、合計時間の上限は abortSignal で付ける
+export const GEMINI_TIMEOUT_MS = 30_000;
+
+async function generateWithTimeout(ai: GoogleGenAI, contents: string) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+  try {
+    return await ai.models.generateContent({
+      model: 'gemini-3.5-flash-lite',
+      contents,
+      config: { abortSignal: controller.signal },
+    });
+  } catch (error) {
+    // SDK は中断理由を伝えずに AbortError を投げるので、ログでタイムアウトと分かる名前を付ける
+    if (controller.signal.aborted) {
+      throw new Error(`Gemini timed out after ${GEMINI_TIMEOUT_MS}ms`, { cause: error });
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function POST(request: Request) {
+  const startedAt = Date.now();
   try {
     const foods: FoodItem[] = await request.json();
 
@@ -65,10 +93,7 @@ ${inventoryText || '（食材なし）'}
   "message": "全体的な一言コメント"
 }`;
 
-    const result = await ai.models.generateContent({
-      model: 'gemini-3.5-flash-lite',
-      contents: prompt,
-    });
+    const result = await generateWithTimeout(ai, prompt);
     const finishReason = result.candidates?.[0]?.finishReason;
     const text = result.text;
     if (!text) {
@@ -83,7 +108,7 @@ ${inventoryText || '（食材なし）'}
     const parsed: SuggestResponse = JSON.parse(jsonMatch[1]);
     return NextResponse.json(parsed);
   } catch (error) {
-    console.error('AI suggest error:', error);
+    console.error(`AI suggest error (${Date.now() - startedAt}ms):`, error);
     return NextResponse.json({ error: 'AI提案の生成に失敗しました' }, { status: 500 });
   }
 }

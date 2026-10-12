@@ -16,7 +16,8 @@ export type SuggestResponse = {
   message: string;
 };
 
-// Gemini の応答を待つ上限。超えたら中断して 500 を返す（SDK のリトライもこの時点で止まる）
+// Gemini の応答を待つ上限。超えたら中断して 500 を返す。
+// httpOptions.timeout は SDK のリトライ 1 回ごとの上限なので、合計時間の上限は abortSignal で付ける
 const GEMINI_TIMEOUT_MS = 30_000;
 
 async function generateWithTimeout(ai: GoogleGenAI, contents: string) {

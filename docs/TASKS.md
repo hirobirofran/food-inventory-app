@@ -36,8 +36,8 @@
 - [x] コンポーネントのテスト基盤（testing-library + jsdom）を入れ、#24 の連打ガードをテストで証明する（#43、PR #46、2026-10-12 マージ）。テスト 11 件。jsdom はテストファイルの docblock で指定、cleanup は `vitest.setup.ts`。Vercel プレビューの断続的な失敗は `handoff/ideas/vercel-git-retrieval-failure.md`
 - [x] AI 提案の Gemini 呼び出しにタイムアウトを付ける（#35、PR #47、2026-10-12 マージ）。`abortSignal` で合計 30 秒、`maxDuration = 60`、タイムアウトは `Gemini timed out after 30000ms` としてログに経過 ms 付きで出る。「久々の 1 回目」のエラーは再現条件不明のため確認外とし `handoff/ideas/ai-first-call-error.md` に記録。派生 Issue: #48（在庫テキストの O(n²)）
 - [x] AI 提案 API の返事の JSON 検証（#33、PR #49、2026-10-12 マージ）。`recipes` が配列でない、または `shopping` があるのに配列でない返事は 500 にし、画面は既存の `!res.ok` でエラー表示になる。テスト 21 件。recipe 各要素の検証と `parsed` の型は #34（構造化出力）で見直す
-- [ ] **期限判定の日付が UTC 解釈でずれる問題（#11）← 次の 1 本**。PR #50 がオーナーのレビュー待ち（2026-10-13）。「今日」は Asia/Tokyo の暦日に固定（オーナー決定・案 A）。セルフレビュー → Codex（`247ae30` に指摘なし）→ `/code-review`（12 件。6 件対応、6 件見送り、各スレッドに返信済み）まで完了。最終コミットは `eea68d6`（Codex の再レビューは未実施）。マージ後に ✅ にし、派生は `handoff/ideas/expiry-date-producers-timezone.md`（同 PR で追加）
-- [ ] 依存更新（#37。npm audit、PR #13 の分割 2 本目）。着手時に npm audit を取り直し、更新・削除する一覧をオーナーに見せてから進める。AI 提案の残件は #34・#36
+- [x] 期限判定の日付が UTC 解釈でずれる問題（#11、PR #50、2026-10-13 マージ）。「今日」を Asia/Tokyo の暦日に固定（オーナー決定・案 A）。`src/types/food.ts` の 2 関数のみ変更、テスト 8 件（TZ=UTC / LA / Tokyo で通過）。セルフレビュー → Codex（指摘なし）→ /code-review（12 件、6 件対応・6 件見送り、各スレッドに返信済み）。派生は `handoff/ideas/expiry-date-producers-timezone.md`
+- [ ] **依存更新（#37）← 次の 1 本**。npm audit、PR #13 の分割 2 本目。着手時に npm audit を取り直し、更新・削除する一覧をオーナーに見せてから進める。AI 提案の残件は #34・#36
 - [ ] PR #10（#9 開封日と開封後の期限）はセルフレビュー・Codex・/code-review が未実施。順番が来たらパイプラインを通す
 - [x] **Gemini API によるAIレシピ・献立提案**（gemini-3.5-flash-lite、無料枠。2026-10 に 2.5 から更新、#31）
   - `src/app/api/ai/suggest/route.ts` 実装

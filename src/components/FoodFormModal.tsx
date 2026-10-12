@@ -42,9 +42,9 @@ export function FoodFormModal({ item, onSave, onClose }: Props) {
         ...form,
         expiryDate: form.expiryDate || null,
       });
-    } catch (e) {
-      console.error(e);
-      setError('保存に失敗しました。もう一度お試しください');
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : '保存に失敗しました');
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -56,7 +56,7 @@ export function FoodFormModal({ item, onSave, onClose }: Props) {
       <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl p-5 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold">{item ? '食材を編集' : '食材を追加'}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+          <button onClick={onClose} disabled={submitting} className="text-gray-400 hover:text-gray-600 disabled:opacity-50 text-2xl leading-none">&times;</button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -169,7 +169,8 @@ export function FoodFormModal({ item, onSave, onClose }: Props) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-3 border border-gray-300 rounded-xl text-gray-700 font-medium"
+              disabled={submitting}
+              className="flex-1 py-3 border border-gray-300 rounded-xl text-gray-700 font-medium disabled:opacity-50"
             >
               キャンセル
             </button>

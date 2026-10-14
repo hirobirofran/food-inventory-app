@@ -1,0 +1,38 @@
+# Dependabot の定期更新（Issue #51）
+# - 新しいバージョンの確認は週 1 回（月曜 09:00 Asia/Tokyo）。npm はメジャー更新も含めて全部 1 本の PR、GitHub Actions も全部 1 本の PR にまとめる
+# - 脆弱性の修正 PR（security updates）はこの設定と無関係に、アラートが出た時点で作られる（まとめない）
+# - cooldown 7 日: 公開直後のバージョンを取り込まないための待ち時間（脆弱性の修正 PR には効かない）
+# - メジャー更新で CI やプレビューに問題が出たら、Dependabot のブランチにコミットを足して直す
+version: 2
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'Asia/Tokyo'
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: 'chore(deps)'
+    groups:
+      npm:
+        patterns:
+          - '*'
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'Asia/Tokyo'
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: 'chore(ci)'
+    groups:
+      github-actions:
+        patterns:
+          - '*'

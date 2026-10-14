@@ -1,6 +1,6 @@
 Issue: #
 
-<!-- Closes / Fixes / Resolves などの自動クローズのキーワードは使わない。Issue は完了条件が全部チェックされてから閉じる -->
+<!-- Closes / Fixes / Resolves と Issue 番号の組み合わせは、PR 本文にもコミットメッセージにも書かない（マージで Issue が自動クローズされる）。Development 欄で Issue を手動リンクしない（同じく自動クローズされる）。Issue は完了条件が全部チェックされてから閉じる -->
 
 ## 目的
 

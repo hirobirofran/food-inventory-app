@@ -55,15 +55,24 @@ Claude Code が作成・投稿する文書（GitHub の Issue・PR 本文・コ�
 
 ### コードレビューの手順（オーナー指定。2026-10-11 に制定、2026-10-13・10-15 の指示を反映）
 
-Issue を起票してから PR を作る。本文の書式は `.github/ISSUE_TEMPLATE/issue.md` と `.github/pull_request_template.md` に従う（`gh` で本文を渡して作るときはテンプレートが自動で入らないので、同じ構成で書く）。ゴールと完了条件は Issue に書き、PR には書かない（PR の「目的」には、この PR が必要な理由を短く書く）。実現方法は Issue の起票時に決めず、着手時に決める。
+Issue を起票してから PR を作る。本文の書式は `.github/ISSUE_TEMPLATE/issue.md` と `.github/pull_request_template.md` に従う（`gh` で本文を渡して作るときはテンプレートが自動で入らないので、同じ構成で書く）。ゴールと完了条件は Issue に書き、PR には書かない（PR の「目的」には、この PR が必要な理由を短く書く）。実現方法は Issue の起票時に決めず、着手時に決める。Issue の閉じ方は下の「Issue の完了条件と閉じ方」のとおり。
 
 1. ドラフト PR を作る前に `npm run lint`・`npm test`・`npx tsc --noEmit` が通ることを確認し、`superpowers:requesting-code-review` でセルフレビューする（レビューはサブエージェントが行う。メインエージェントは行わない）
 2. 指摘は `superpowers:receiving-code-review` で採否を判断し、各コメントのスレッドに対応内容を返信する。修正ならコミットのリンク、見送りなら理由と行き先の Issue のリンクを必ず付ける（番号だけは不可）。Resolved はオーナーが行う
 3. ドラフト PR の後、アプリのコードなら `/simplify`（先にコミット＆プッシュしてから実行し、差分を見て採否を決める）、次に `/code-review <PR 番号> --comment` を実行する。順番と項目は PR テンプレートのチェックリストのとおり
 4. Codex のレビューは、PR のコメントで codex をメンションして（@ を付けて「レビューして」と書く）起動する。Claude が行ってよい。起動する意図が無いときは、本文・コメント・返信のどこでも codex に @ を付けない（コードの書式の中でも反応する）。Ready for review でも起動するが、Ready はオーナー操作なので Claude は使わない。指摘に対応する
 5. オーナーが PR をレビューし、マージする
+6. マージ後、Claude Code が残りの完了条件を確かめ、全部にチェックが入ったら Issue を閉じる（下の「Issue の完了条件と閉じ方」）
 
 段階を省くかは PR ごとにオーナーに聞く。Claude は決めない。レビュー前に満たす項目の一覧は `.github/pull_request_template.md` のチェックリストを正とする。
+
+### Issue の完了条件と閉じ方（オーナー指定、2026-10-15）
+
+- 完了条件は、確かめられた時点で（マージ前でも可）、Claude Code が根拠（確認したコミット・方法・URL）を Issue のコメントに残してチェックを入れる。PR 側に書いた確認結果は、Issue のコメントからリンクする
+- 完了条件が全部チェックされたら、Claude Code が Issue を閉じる。チェックが入らない条件が残るなら、Claude Code が理由を Issue に書き、オーナーが判断する。PR の無い Issue も同じ
+- PR のマージで Issue を自動クローズしない。`Closes` / `Fixes` / `Resolves` と Issue 番号の組み合わせを、PR 本文にもコミットメッセージにも書かない。GitHub の Development 欄で Issue を手動リンクしない（マージで閉じるため）。Issue の参照は `Issue: #番号` と書く
+- 確認した結果（レビューの観点への回答、動作確認など）は、その Issue か PR のコメントに残す。handoff/ やメモリだけに書かない
+- `docs/TASKS.md` の「Issue 受け入れ条件のチェックルール」と食い違うときは、この節を優先する（TASKS.md の整理は #55）
 
 ## 秘密情報・識別子の扱い（重要）
 

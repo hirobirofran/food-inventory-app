@@ -2,7 +2,7 @@
 
 ## 前提
 
-- Node.js 18以上がインストール済み
+- Node.js 24 がインストール済み（24.15 以上。`.nvmrc` と package.json の `engines.node` で指定。jsdom が 24.15 以上を要求する）
 - Gitがインストール済み
 - Googleアカウントを持っている
 

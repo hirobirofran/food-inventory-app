@@ -1,5 +1,6 @@
 name: CI
 
+# workflow_dispatch は落ちた PR を手動でキックするために置く（Issue #51）
 # docs や md だけの変更では動かさない（Issue #28）
 # 注意: main のブランチ保護で CI を必須チェックにすると、docs だけの PR はチェックが
 # 「待機」のままになりマージできない。必須にするときは paths-ignore を外すか、
@@ -13,6 +14,7 @@ on:
       - 'docs/**'
       - 'handoff/**'
       - '**/*.md'
+  workflow_dispatch:
   push:
     branches: [main]
     paths-ignore:
@@ -34,7 +36,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - run: npm test

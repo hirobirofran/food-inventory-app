@@ -1,6 +1,8 @@
 # Dependabot の定期更新（Issue #51）
 # - npm と GitHub Actions を月 1 回（Asia/Tokyo）確認し、minor / patch は 1 本の PR にまとめる
 # - npm のメジャー更新は除外する（手動で判断して上げる）。Actions はメジャーが主なので除外しない
+# - GitHub Actions はメジャーを含め、種類を問わず 1 本の PR にまとめる
+# - security updates は groups の対象外（applies-to の既定は version updates）なので、脆弱性の修正 PR は 1 件ずつ来る
 # - cooldown 7 日: 公開直後のバージョンは取り込まない（version updates のみ。security updates には効かない）
 version: 2
 updates:

@@ -62,7 +62,7 @@ Issue を起票してから PR を作る。本文の書式は `.github/ISSUE_TEM
 4. ドラフト PR の後に `/code-review <PR 番号> --comment` を実行する
 5. オーナーが PR をレビューし、マージする
 
-段階を省くかは PR ごとにオーナーに聞く。Claude は決めない。
+段階を省くかは PR ごとにオーナーに聞く。Claude は決めない。レビュー前に満たす項目の一覧は `.github/pull_request_template.md` のチェックリストを正とする。
 
 ## 秘密情報・識別子の扱い（重要）
 

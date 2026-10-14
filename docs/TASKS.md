@@ -26,7 +26,7 @@
 
 ### 🔲 次にやること
 
-以下は上から順に 1 つずつ進める。同時にやらない（2026-10-12 オーナー決定: 並行作業はしない。同時に開く PR は 1 本。同じファイルを触る Issue は 1 PR にまとめてよい。変更は Issue 本文のゴールに限定し、気づいた別件は新 Issue にする）。
+以下は上から順に 1 つずつ進める。同時にやらない（2026-10-12 オーナー決定: 並行作業はしない。同じファイルを触る Issue は 1 PR にまとめてよい。変更は Issue 本文のゴールに限定し、気づいた別件は新 Issue にする）。
 
 - [x] PR 確認用プレビューの整備と、デプロイ・確認手順の明文化（#27）。2026-10-11 完了。手順は `docs/SETUP.md` の 5
 - [x] Vercel インシデント対応（Issue #1）: 2026-10-11 完了（デモ側の値交換・旧 Gemini キー削除・PR #2 マージ）。運用情報は `handoff/issues/i1/`
@@ -37,7 +37,7 @@
 - [x] AI 提案の Gemini 呼び出しにタイムアウトを付ける（#35、PR #47、2026-10-12 マージ）。`abortSignal` で合計 30 秒、`maxDuration = 60`、タイムアウトは `Gemini timed out after 30000ms` としてログに経過 ms 付きで出る。「久々の 1 回目」のエラーは再現条件不明のため確認外とし `handoff/ideas/ai-first-call-error.md` に記録。派生 Issue: #48（在庫テキストの O(n²)）
 - [x] AI 提案 API の返事の JSON 検証（#33、PR #49、2026-10-12 マージ）。`recipes` が配列でない、または `shopping` があるのに配列でない返事は 500 にし、画面は既存の `!res.ok` でエラー表示になる。テスト 21 件。recipe 各要素の検証と `parsed` の型は #34（構造化出力）で見直す
 - [x] 期限判定の日付が UTC 解釈でずれる問題（#11、PR #50、2026-10-13 マージ）。「今日」を Asia/Tokyo の暦日に固定（オーナー決定・案 A）。`src/types/food.ts` の 2 関数のみ変更、テスト 8 件（TZ=UTC / LA / Tokyo で通過）。セルフレビュー → Codex（指摘なし）→ /code-review（12 件、6 件対応・6 件見送り、各スレッドに返信済み）。派生は `handoff/ideas/expiry-date-producers-timezone.md`
-- [ ] **依存更新（#37）← 次の 1 本**。npm audit、PR #13 の分割 2 本目。着手時に npm audit を取り直し、更新・削除する一覧をオーナーに見せてから進める。AI 提案の残件は #34・#36
+- [ ] **依存更新（#37）← 進行中**。PR #52（ドラフト、2026-10-15）。next / eslint-config-next 16.4.0、react 19.3.0、未使用の next-pwa と @google-cloud/local-auth を削除、engines.node と .nvmrc を 24.x。audit は 26 → 5（残りは eslint-config-next 配下の braces、修正版なし。本番依存のみなら 0）。セルフレビュー済み（Critical / Important なし）。Codex・/code-review・プレビュー確認はオーナーの指示待ち。AI 提案の残件は #34・#36
 - [ ] PR #10（#9 開封日と開封後の期限）はセルフレビュー・Codex・/code-review が未実施。順番が来たらパイプラインを通す
 - [x] **Gemini API によるAIレシピ・献立提案**（gemini-3.5-flash-lite、無料枠。2026-10 に 2.5 から更新、#31）
   - `src/app/api/ai/suggest/route.ts` 実装
@@ -74,6 +74,7 @@
 - [ ] 食材の編集・削除の失敗が無言、編集モーダルに連打ガードなし（#42）
 - [ ] 食材追加 API を冪等にする（クライアント生成 ID、#44）
 - [ ] アクセシビリティ監査の 2 件（薄い灰色のコントラスト、`<html lang>`、#45）
+- [ ] 依存更新の定期運用を入れる（Dependabot。Renovate との比較付き、#51）。#37 の後に着手。CI に `workflow_dispatch` を足す手順を含む
 - [x] GitHub Actions で npm test と型チェックを CI 化する（#28、PR #29、2026-10-11）。lint は #12 の PR で追加
 
 ---

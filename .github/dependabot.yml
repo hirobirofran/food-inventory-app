@@ -1,35 +1,32 @@
 # Dependabot の定期更新（Issue #51）
-# - npm と GitHub Actions を月 1 回（Asia/Tokyo）確認し、minor / patch は 1 本の PR にまとめる
-# - npm のメジャー更新は除外する（手動で判断して上げる）。Actions はメジャーが主なので除外しない
-# - GitHub Actions はメジャーを含め、種類を問わず 1 本の PR にまとめる
-# - security updates は groups の対象外（applies-to の既定は version updates）なので、脆弱性の修正 PR は 1 件ずつ来る
-# - cooldown 7 日: 公開直後のバージョンは取り込まない（version updates のみ。security updates には効かない）
+# - 新しいバージョンの確認は週 1 回（月曜 09:00 Asia/Tokyo）。npm はメジャー更新も含めて全部 1 本の PR、GitHub Actions も全部 1 本の PR にまとめる
+# - 脆弱性の修正 PR（security updates）はこの設定と無関係に、アラートが出た時点で作られる（まとめない）
+# - cooldown 7 日: 公開直後のバージョンを取り込まないための待ち時間（脆弱性の修正 PR には効かない）
+# - メジャー更新で CI やプレビューに問題が出たら、Dependabot のブランチにコミットを足して直す
 version: 2
 updates:
   - package-ecosystem: 'npm'
     directory: '/'
     schedule:
-      interval: 'monthly'
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
       timezone: 'Asia/Tokyo'
     cooldown:
       default-days: 7
     commit-message:
       prefix: 'chore(deps)'
     groups:
-      npm-minor-patch:
+      npm:
         patterns:
           - '*'
-        update-types:
-          - 'minor'
-          - 'patch'
-    ignore:
-      - dependency-name: '*'
-        update-types: ['version-update:semver-major']
 
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:
-      interval: 'monthly'
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
       timezone: 'Asia/Tokyo'
     cooldown:
       default-days: 7

@@ -20,13 +20,14 @@
 
 - Phase 1 UI 実装済み（モックデータで動作）
 - Google Sheets 連携・Claude API 連携は**未実装**
-- 次にやること → `docs/TASKS.md` の「次にやること」セクションを参照
+- 次にやること → GitHub の open Issue から候補を出し、順番をオーナーに確認してから着手する。Issue ごとの現状は `handoff/issues/i<番号>/README.md` を読む（`docs/TASKS.md` は 2026-10-15 から更新していない）
 
 ## 重要ルール
 
 - `.env.local` と Google サービスアカウント JSON キーは**絶対にコミットしない**
 - `docs/` フォルダに詳細ドキュメントがある（人間向け）
-- 各セッション終了時に `docs/TASKS.md` を更新し、引き継ぎ情報は `handoff/` に書く（下記）。`docs/KNOWLEDGE.md` へのログ的な追記はしない
+- 作業の区切りで、Issue ごとの現状と再開手順を `handoff/issues/i<番号>/README.md` に書く（下記）。進捗ログを `docs/TASKS.md` や `docs/KNOWLEDGE.md` に追記しない。`docs/TASKS.md` はオーナーが作ったものではないので、その扱いをオーナーに質問しない
+- オーナーからの運用上の指示は、その場で CLAUDE.md か handoff/ に書く。Claude のメモリだけに置かない（他の PC やクラウドのセッションでは見えない）
 
 ### 引き継ぎ情報の置き場所（`handoff/`）
 
@@ -61,7 +62,7 @@ Issue を起票してから PR を作る。本文の書式は `.github/ISSUE_TEM
 1. ドラフト PR を作る前に `npm run lint`・`npm test`・`npx tsc --noEmit` が通ることを確認し、`superpowers:requesting-code-review` でセルフレビューする（レビューはサブエージェントが行う。メインエージェントは行わない）
 2. 指摘は `superpowers:receiving-code-review` で採否を判断し、各コメントのスレッドに対応内容を返信する。修正ならコミットのリンク、見送りなら理由と行き先の Issue のリンクを必ず付ける（番号だけは不可）。Resolved はオーナーが行う
 3. ドラフト PR の後、アプリのコードなら `/simplify`（先にコミットしてから実行し、差分を見て採否を決める）、次に `/code-review <PR 番号> --comment` を実行する。順番と項目は PR テンプレートのチェックリストのとおり
-4. Codex のレビューは、PR に「@codex レビューして」とコメントして起動する（Claude が行ってよい。起動する意図が無いときは codex に @ を付けない）。Ready for review でも起動するが、Ready はオーナー操作なので Claude は使わない。指摘に対応する
+4. Codex のレビューは、PR のコメントで codex をメンションして（@ を付けて「レビューして」と書く）起動する。Claude が行ってよい。起動する意図が無いときは、本文・コメント・返信のどこでも codex に @ を付けない（コードの書式の中でも反応する）。Ready for review でも起動するが、Ready はオーナー操作なので Claude は使わない。指摘に対応する
 5. オーナーが PR をレビューし、マージする
 
 段階を省くかは PR ごとにオーナーに聞く。Claude は決めない。レビュー前に満たす項目の一覧は `.github/pull_request_template.md` のチェックリストを正とする。
@@ -79,7 +80,7 @@ Issue を起票してから PR を作る。本文の書式は `.github/ISSUE_TEM
 | ----------------------- | -------------------------------------------- |
 | `docs/VISION.md`        | やりたいこと・ゴール・利用シーン             |
 | `docs/ARCHITECTURE.md`  | 技術選定の理由・データ設計・ディレクトリ構成 |
-| `docs/TASKS.md`         | タスク一覧・進捗・次にやること               |
+| `docs/TASKS.md`         | 旧タスク一覧（2026-10-15 から更新停止。残すか消すかは `handoff/ideas/tasks-md-role.md`） |
 | `docs/KNOWLEDGE.md`     | 気づき・ハマりポイント・申し送り             |
 | `docs/SETUP.md`         | 環境構築手順（Google Sheets・Claude API等）  |
 | `handoff/issues/i<N>/`  | Issue ごとの引き継ぎ（現状・再開手順）        |

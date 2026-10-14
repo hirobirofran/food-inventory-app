@@ -1,4 +1,6 @@
-Closes #
+Issue: #
+
+<!-- Closes / Fixes / Resolves などの自動クローズのキーワードは使わない。Issue は完了条件が全部チェックされてから閉じる -->
 
 ## 目的
 

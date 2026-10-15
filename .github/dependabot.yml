@@ -20,6 +20,11 @@ updates:
       npm:
         patterns:
           - '*'
+    ignore:
+      # typescript-eslint（eslint-config-next 経由）が TypeScript 7 に未対応で lint が止まるため、typescript のメジャー更新だけ見送る。
+      # 対応したら外す（Issue #62）。1 パッケージ限定で、他のメジャー更新は受け取る
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: 'github-actions'
     directory: '/'

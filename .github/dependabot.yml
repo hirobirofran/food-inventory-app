@@ -25,6 +25,10 @@ updates:
       # 対応したら外す（Issue #62）。1 パッケージ限定で、他のメジャー更新は受け取る
       - dependency-name: 'typescript'
         update-types: ['version-update:semver-major']
+      # @types/node は実行環境（.nvmrc と engines.node の Node 24）に合わせる。Node 26 にしかない API を型検査で通さないため。
+      # Node を上げるときは .nvmrc・engines.node と一緒にこの範囲も上げる
+      - dependency-name: '@types/node'
+        versions: ['>=25']
 
   - package-ecosystem: 'github-actions'
     directory: '/'

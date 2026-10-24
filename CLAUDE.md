@@ -30,12 +30,12 @@
 
 ### 引き継ぎ情報の置き場所（`handoff/`）
 
-- `handoff/issues/i<Issue番号>/`: その Issue の作業を区切るときの詳細な引き継ぎ。`README.md` に現状と再開手順、トピックごとに別ファイル。Issue コメントには要約を書き、詳細はここに置く
+- `handoff/issues/i<Issue番号>/`: その Issue の作業を区切るときの詳細な引き継ぎ。`README.md` に現状・失敗（根拠付き）・再開手順、トピックごとに別ファイル。Issue コメントには要約を書き、詳細はここに置く
 - `handoff/prs/pr<PR番号>/`: Issue の無い PR（Dependabot の PR など）の作業の引き継ぎ。書き方は issues と同じ
 - `handoff/ideas/`: 未来にやりたいこと。1 件 1 ファイル、`README.md` が索引。着手したら GitHub Issue にしてフォルダから消す
 - 書くのは「現状」「失敗（根拠付き）」「再開手順」。経緯の全文は書かない（git と GitHub に任せる）。秘密情報と環境固有の識別子は書かない
 - 置き場と更新の仕方（handoff は ok の後に main 直、ADR は Issue と PR）、失敗の書き方は `docs/adr/0002-record-locations-and-updates.md`
-- 作業を再開するときは、まず対象 Issue の `handoff/issues/i<N>/README.md` を読む
+- 作業を再開するときは、まず対象 Issue の `handoff/issues/i<N>/README.md`（Issue の無い PR なら `handoff/prs/pr<N>/README.md`）を読む
 
 ### Claude Code の署名
 

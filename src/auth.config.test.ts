@@ -7,9 +7,9 @@ function signIn(profile: SignInParams['profile']) {
 }
 const verified = (email: string) => ({ email, email_verified: true });
 
-describe('authConfig.callbacks.signIn（許可リスト）', () => {
-  afterEach(() => vi.unstubAllEnvs());
+afterEach(() => vi.unstubAllEnvs());
 
+describe('authConfig.callbacks.signIn（許可リスト）', () => {
   it('許可リストにある検証済みメールは許可', async () => {
     vi.stubEnv('AUTH_ALLOWED_EMAILS', 'a@example.com,b@example.com');
     expect(await signIn(verified('b@example.com'))).toBe(true);
@@ -38,8 +38,7 @@ describe('authConfig.callbacks.signIn（許可リスト）', () => {
     expect(await signIn(undefined)).toBe(false);
   });
   it.each([undefined, '', ' , '])('許可リストが %j なら全員拒否', async (list) => {
-    if (list === undefined) vi.stubEnv('AUTH_ALLOWED_EMAILS', undefined);
-    else vi.stubEnv('AUTH_ALLOWED_EMAILS', list);
+    vi.stubEnv('AUTH_ALLOWED_EMAILS', list);
     expect(await signIn(verified('a@example.com'))).toBe(false);
   });
 });
@@ -50,8 +49,6 @@ function jwt(token: JwtParams['token']) {
 }
 
 describe('authConfig.callbacks.jwt（許可リストの再確認）', () => {
-  afterEach(() => vi.unstubAllEnvs());
-
   it('許可リストにあるメールならトークンをそのまま返す', async () => {
     vi.stubEnv('AUTH_ALLOWED_EMAILS', 'a@example.com');
     const token = { email: 'A@Example.com' };

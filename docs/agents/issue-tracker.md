@@ -9,14 +9,15 @@ CLAUDE.md の「コードレビューの手順」と「Issue の完了条件と�
 - Issue 本文は `.github/ISSUE_TEMPLATE/issue.md`、PR 本文は `.github/pull_request_template.md` の構成で書く（`gh` で本文を渡すとテンプレートは自動で入らない）
 - `Closes` / `Fixes` / `Resolves` と Issue 番号の組み合わせを、PR 本文にもコミットメッセージにも書かない。Issue の参照は `Issue: #番号`
 - Issue はマージで自動クローズしない。完了条件が全部チェックされてから Claude Code が閉じる
-- Issue・PR・コメントを作る前に、本文の案を見せてオーナーの ok を得る
+- Issue・PR・コメントを作る前に、本文の案を見せてオーナーの ok を得る（オーナー指示。2026-10-23〜24 に許可なく作った PR #70 が却下された）
+- Claude Code が作る Issue・PR・コメントの末尾には署名を 1 回入れる（CLAUDE.md「Claude Code の署名」）
 
 ## 操作
 
 - 作る: `gh issue create --title "..." --body-file <file>`（複数行の本文はファイルで渡す）
 - 読む: `gh issue view <number> --json number,title,body,labels,comments`
 - 一覧: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'`。`--label` と `--state` で絞る
-- 親子にする: `gh issue create --parent <parent> ...`、または後から `gh issue edit <parent> --add-sub-issue <child>`（gh 2.94 以上）。古い gh では `gh api --method POST repos/<owner>/<repo>/issues/<parent>/sub_issues -F sub_issue_id=<child-db-id>`（database id。下の「ブロック」と同じ）。サブ Issue が使えないときは、子の本文の先頭に `Part of #<parent>`
+- 親子にする: `gh issue create --parent <parent> ...`、または後から `gh issue edit <parent> --add-sub-issue <child>`（gh 2.94 以上）。古い gh では `gh api --method POST repos/<owner>/<repo>/issues/<parent>/sub_issues -F sub_issue_id=<child-db-id>`（database id。`gh api repos/<owner>/<repo>/issues/<n> --jq .id` で取る）。サブ Issue が使えないときは、子の本文の先頭に `Part of #<parent>`
 - コメント: `gh issue comment <number> --body-file <file>`
 - ラベル: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - 閉じる: `gh issue close <number> --comment "..."`（完了条件が全部チェックされた後）
@@ -42,14 +43,3 @@ GitHub Issue を作る（上の先行ルールのとおり、本文の案を見�
 ## スキルが「該当するチケットを取る」と言ったら
 
 上の「読む」のとおりに読む。
-
-## Wayfinding の操作
-
-`/wayfinder` が使う。map は 1 つの Issue、子 Issue がチケット。
-
-- Map: `wayfinder:map` ラベルの Issue 1 つ（Notes / Decisions-so-far / Fog を本文に持つ）。`gh issue create --label wayfinder:map`
-- 子チケット: map のサブ Issue（上の「親子にする」）。サブ Issue が使えなければ map 本文のタスクリストに加え、子の先頭に `Part of #<map>`。ラベルは `wayfinder:<type>`（research / prototype / grilling / task）。着手したら担当の開発者を assign
-- ブロック: GitHub の Issue dependencies。`gh api --method POST repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`。`<blocker-db-id>` はブロッカーの database id（`gh api repos/<owner>/<repo>/issues/<n> --jq .id`。`#番号` や `node_id` ではない）。GitHub は `issue_dependencies_summary.blocked_by`（open なブロッカーの数）を返す。使えなければ子の先頭に `Blocked by: #<n>, #<n>`。全部のブロッカーが閉じたら解除
-- Frontier: map の open な子を列挙し、open なブロッカーがあるもの（`blocked_by > 0`、または `Blocked by` 行に open な Issue）と担当者がいるものを除き、map の順で先頭を選ぶ
-- Claim: `gh issue edit <n> --add-assignee @me`（セッション最初の書き込み）
-- Resolve: `gh issue comment <n> --body-file <file>` → `gh issue close <n>` → map の Decisions-so-far にポインタ（gist とリンク）を追記

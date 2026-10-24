@@ -109,4 +109,4 @@ Issue は GitHub Issues。`docs/agents/issue-tracker.md` を見る。
 
 ### Domain docs
 
-単一コンテキスト（`GLOSSARY.md`、`docs/adr/`）。`docs/agents/domain.md` を見る。
+単一コンテキスト（`GLOSSARY.md`、`docs/adr/`）。作業前に `docs/adr/README.md` の索引を見て、関係する ADR を読む。ADR と食い違う提案は黙って上書きせず明示する。読み方と運用は `docs/agents/domain.md`。

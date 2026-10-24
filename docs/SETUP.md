@@ -251,7 +251,7 @@ Google のクライアントシークレット:
 | デモ | food-inventory-demo | food-inventory-demo.vercel.app | main | デモシート（`npm run seed:demo` で入れ直せる） |
 | プレビュー | 両プロジェクトに自動生成 | PR ごとの一時 URL | PR のブランチ | デモ用だけ動く（下記） |
 
-本番とデモは同じ main から同時にデプロイされる。push 1 回で両方が更新されるので、「デモで試してから本番」はできない。デモと本番の違いは環境変数だけ（シート、許可リスト、`NEXT_PUBLIC_APP_ENV=demo` のバナー、デモにだけ入れる `AUTH_REDIRECT_PROXY_URL`）。
+本番とデモは同じ main から同時にデプロイされる。push 1 回で両方が更新されるので、「デモで試してから本番」はできない。デモと本番の違いは環境変数だけ（シート、許可リスト、`AUTH_SECRET` の値、`NEXT_PUBLIC_APP_ENV=demo` のバナー、デモにだけ入れる `AUTH_REDIRECT_PROXY_URL`）。
 
 ### PR の確認手順
 

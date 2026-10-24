@@ -96,3 +96,17 @@ Issue を起票してから PR を作る。本文の書式は `.github/ISSUE_TEM
 ## ユーザーの調理器具（AIレシピ提案時に必ず考慮）
 
 オートクッカービストロ / ビストロレンジ / グルラボ → これらを活用した省力・時短レシピを優先して提案する
+
+## Agent skills
+
+### Issue tracker
+
+Issue は GitHub Issues。`docs/agents/issue-tracker.md` を見る。
+
+### Triage labels
+
+既定の 5 ラベル。`docs/agents/triage-labels.md` を見る。
+
+### Domain docs
+
+単一コンテキスト（`GLOSSARY.md`、`docs/adr/`）。`docs/agents/domain.md` を見る。

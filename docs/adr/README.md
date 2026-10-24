@@ -5,5 +5,6 @@
 | 番号 | 題名 | status |
 | --- | --- | --- |
 | 0001 | [依存パッケージの更新は、マイナー・パッチなら CI 通過でマージし、むやみに最新にしない](0001-dependency-update-policy.md) | accepted |
+| 0002 | [記録の置き場と更新の仕方: 引き継ぎは handoff/ に ok の後で main 直、決定は ADR に Issue と PR で](0002-record-locations-and-updates.md) | accepted |
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

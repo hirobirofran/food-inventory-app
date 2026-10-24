@@ -157,7 +157,7 @@ npx vitest    # 変更を監視して再実行
    - `https://<デモの固定 URL>/api/auth/callback/google`
 3. （Vercel ダッシュボード）環境変数 4 つ（`AUTH_SECRET`、`AUTH_GOOGLE_ID`、`AUTH_GOOGLE_SECRET`、`AUTH_ALLOWED_EMAILS`）を Vercel のダッシュボードから Secret で入れる。`AUTH_ALLOWED_EMAILS` は、Google アカウントに表示されるアドレスをそのまま、半角カンマ区切りで書く（大小文字は区別しない。未設定・空なら全員拒否）。本番は Production、デモは Production と Preview に入れる
 4. （Vercel ダッシュボード）デモプロジェクトの Production と Preview の両方に `AUTH_REDIRECT_PROXY_URL=https://<デモの固定 URL>/api/auth` を入れる（転送する側＝固定 URL にも要る）。`AUTH_SECRET` は両方で同じ値にする。入れるのは、この変更を含む PR のマージ後（先に入れると、その PR の確認用サイトが旧コードの固定 URL に戻って確認できない）。これで確認用サイト（プレビュー）はデモの固定 URL 経由で戻る（Auth.js の redirectProxyUrl。出典: https://authjs.dev/getting-started/deployment ）ので、PR ごとのブランチ URL を Google に登録する必要は無い
-5. 補足: ログイン状態は 30 日続く。ログアウトは無い。許可リストに無いアカウントは `/api/auth/error?error=AccessDenied` に出る。許可リストから外した人は、次のリクエストからログアウトされる（Vercel の変数変更は Redeploy 後に効く）
+5. 補足: ログイン状態は 30 日続く。ログアウトは無い。許可リストに無いアカウントは `/api/auth/error?error=AccessDenied` に出る。許可リストから外した人は、次のリクエストからログアウトされる。`AUTH_ALLOWED_EMAILS` を空にすると全員が即ログアウトになる（Vercel の変数変更は Redeploy 後に効く）
 
 ---
 

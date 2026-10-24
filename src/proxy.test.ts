@@ -4,7 +4,9 @@ import { NextRequest } from 'next/server';
 // auth((req) => handler) を、handler をそのまま返す関数に差し替える
 vi.mock('@/auth', () => ({ auth: (handler: unknown) => handler }));
 
-import { proxy } from './proxy';
+// @ts-expect-error -- Next 同梱の path-to-regexp には型定義が無い（matcher と同じ解釈で検証するため使う）
+import { pathToRegexp } from 'next/dist/compiled/path-to-regexp';
+import { config, proxy } from './proxy';
 
 type Authed = NextRequest & { auth: unknown };
 function request(url: string, auth: unknown): Authed {
@@ -35,5 +37,15 @@ describe('proxy', () => {
   it('user の無いセッションは未ログイン扱い', async () => {
     const res = await run('/api/foods', { expires: '' });
     expect(res.status).toBe(401);
+  });
+});
+
+describe('proxy matcher', () => {
+  const re: RegExp = pathToRegexp(config.matcher[0]);
+  it.each(['/api/auth/signin', '/api/auth/callback/google'])('%s は対象外（Auth.js のエンドポイント）', (path) => {
+    expect(re.test(path)).toBe(false);
+  });
+  it.each(['/api/foods', '/api/authors', '/'])('%s は対象（認証が要る）', (path) => {
+    expect(re.test(path)).toBe(true);
   });
 });

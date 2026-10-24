@@ -211,7 +211,7 @@ AUTH_REDIRECT_PROXY_URL=https://<デモの固定 URL>/api/auth
 - デモは Production と Preview に同時にチェックを入れて 1 回で保存する。こうすると両方が同じ値になる
 - `AUTH_ALLOWED_EMAILS` は Google アカウントに表示されるアドレスをそのまま、半角カンマ区切りで書く。大文字小文字は区別しない。空だと誰もログインできない
 - Secret 型は保存後に値を読めず、Config 型にも変えられない。許可リストは人を足すたびに全文を見直すので Config にする
-- メールアドレスは GitHub の公開領域（Issue・PR・docs・コード・設定ファイル）に書かない
+- 許可リストの値（メールアドレス）はリポジトリに書かず、Vercel にだけ置く
 - `AUTH_REDIRECT_PROXY_URL` は、プレビューのログインをデモの固定 URL 経由で戻すための値。転送する側（プレビュー）と転送される側（固定 URL）の両方に要る。これがあるので、PR ごとの URL を Google に登録しなくてよい
 - チーム設定の「Separate Production Secret Values」は無効のままにする。有効だと、Production と Preview に同じ値を入れられない
 
@@ -277,6 +277,6 @@ Google のクライアントシークレット:
 
 ## 注意事項
 
-- `.env.local` は絶対にGitHubにコミットしない（`.gitignore` に含まれているが要確認）
+- `.env.local` は絶対にコミットしない（`.gitignore` の `.env*` で除外済み。`.env.local.example` だけはコミットする）
 - Google Sheets JSONキーファイル（`*.json`）もGitHubにコミットしない
 - APIキーが漏洩した場合はすぐに無効化して再発行する

@@ -1,6 +1,6 @@
 # #51 依存更新の定期運用（Dependabot）
 
-## 現状（2026-10-15）
+## 現状（2026-10-24）
 
 - 完了。PR #58 を 2026-10-15 05:56 頃にオーナーがマージ（main `68d1ea7`）。完了条件 2 件を根拠付きでチェックし（1 件は取り下げ）、Claude Code が #51 を閉じた
 - 入ったもの: `.github/dependabot.yml`（新しいバージョンの確認は週 1 回・月曜 09:00 Asia/Tokyo。npm はメジャー更新も含めて全部 1 本の PR、GitHub Actions も全部 1 本の PR。cooldown 7 日）。`ci.yml` は `node-version-file: .nvmrc` への変更のみ

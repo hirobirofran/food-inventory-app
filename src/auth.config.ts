@@ -1,15 +1,15 @@
 import type { NextAuthConfig } from 'next-auth';
 import Google from 'next-auth/providers/google';
 
-const norm = (s: string) => s.trim().toLowerCase();
+const normalizeEmail = (s: string) => s.trim().toLowerCase();
 
 function isListedEmail(
   email: string | null | undefined,
   allowlist: string | undefined,
 ): boolean {
-  const normalized = norm(email ?? '');
+  const normalized = normalizeEmail(email ?? '');
   if (!normalized) return false;
-  return (allowlist ?? '').split(/[,，、;\s]+/).map(norm).includes(normalized);
+  return (allowlist ?? '').split(/[,，、;\s]+/).map(normalizeEmail).includes(normalized);
 }
 
 export const authConfig = {

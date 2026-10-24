@@ -24,6 +24,8 @@ npm run dev
 
 ブラウザで http://localhost:3000 を開く。
 
+ローカル（http://localhost:3000）では Google ログインの戻り先を登録していないので、ログインは通らない（Issue #77 の決定。ログイン回避も作らない）。動作確認は PR の確認用サイト（5 章）で行う。
+
 ---
 
 ## 2. Google Sheets API の設定（未実施）
@@ -152,12 +154,12 @@ npx vitest    # 変更を監視して再実行
 コード側（Auth.js）は実装済み。以下はすべて設定で、オーナーが行う。
 
 1. （Google Cloud コンソール）Sheets 用の既存プロジェクトで、OAuth 同意画面を「外部」、公開ステータスを Testing のままにする。スコープは足さない（openid / email / profile のみ）。この組み合わせはテストユーザーの登録が要らず、7 日で失効もしない（出典: https://support.google.com/cloud/answer/15549945 ）
-2. （Google Cloud コンソール）OAuth クライアント ID（種類は「ウェブ アプリケーション」）を作り、承認済みのリダイレクト URI に次の 2 つを登録する。完全一致で、ワイルドカードは使えない（出典: https://developers.google.com/identity/protocols/oauth2/web-server ）
+2. （Google Cloud コンソール）OAuth クライアント ID（種類は「ウェブ アプリケーション」）を作り、承認済みのリダイレクト URI に次の 2 つを登録する。完全一致で、ワイルドカードは使えない。localhost は登録しない（出典: https://developers.google.com/identity/protocols/oauth2/web-server ）
    - `https://<本番の固定 URL>/api/auth/callback/google`
    - `https://<デモの固定 URL>/api/auth/callback/google`
 3. （Vercel ダッシュボード）環境変数 4 つ（`AUTH_SECRET`、`AUTH_GOOGLE_ID`、`AUTH_GOOGLE_SECRET`、`AUTH_ALLOWED_EMAILS`）を Vercel のダッシュボードから Secret で入れる。`AUTH_ALLOWED_EMAILS` は、Google アカウントに表示されるアドレスをそのまま、半角カンマ区切りで書く（大小文字は区別しない。未設定・空なら全員拒否）。本番は Production、デモは Production と Preview に入れる
 4. （Vercel ダッシュボード）デモプロジェクトの Production と Preview の両方に `AUTH_REDIRECT_PROXY_URL=https://<デモの固定 URL>/api/auth` を入れる（転送する側＝固定 URL にも要る）。`AUTH_SECRET` は両方で同じ値にする。これで確認用サイト（プレビュー）はデモの固定 URL 経由で戻る（Auth.js の redirectProxyUrl。出典: https://authjs.dev/getting-started/deployment ）ので、PR ごとのブランチ URL を Google に登録する必要は無い
-5. 補足: ログイン状態は 30 日続く。ログアウトは無い。許可リストに無いアカウントは `/api/auth/error?error=AccessDenied` に出る。許可リストから外した人は、次のリクエストからログアウトされる。`AUTH_ALLOWED_EMAILS` を空にすると全員が即ログアウトになる（Vercel の変数変更は Redeploy 後に効く）
+5. 補足: ログイン状態は最後に使ってから 30 日続く（使うたびに延びる。Auth.js の既定）。ログアウト画面は作っていない（Auth.js 組み込みの `/api/auth/signout` は使える）。許可リストに無いアカウントは `/api/auth/error?error=AccessDenied` に出る。許可リストから外した人は、次のリクエストからログアウトされる。`AUTH_ALLOWED_EMAILS` を空にすると全員が即ログアウトになる（Vercel の変数変更は Redeploy 後に効く）
 
 ---
 

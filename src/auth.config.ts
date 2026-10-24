@@ -3,13 +3,13 @@ import Google from 'next-auth/providers/google';
 
 const norm = (s: string) => s.trim().toLowerCase();
 
-export function isListedEmail(
+function isListedEmail(
   email: string | null | undefined,
   allowlist: string | undefined,
 ): boolean {
   const normalized = norm(email ?? '');
   if (!normalized) return false;
-  return (allowlist ?? '').split(',').map(norm).includes(normalized);
+  return (allowlist ?? '').split(/[,，、;\s]+/).map(norm).includes(normalized);
 }
 
 export const authConfig = {

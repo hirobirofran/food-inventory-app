@@ -37,7 +37,7 @@ describe('proxy matcher', () => {
   it.each(['/api/auth/signin', '/api/auth/callback/google'])('%s は対象外（Auth.js のエンドポイント）', (path) => {
     expect(unstable_doesMiddlewareMatch({ config, url: path })).toBe(false);
   });
-  it.each(['/api/foods', '/api/authors', '/'])('%s は対象（認証が要る）', (path) => {
+  it.each(['/api/foods', '/api/authors', '/', '/login', '/api/login'])('%s は対象（認証が要る）', (path) => {
     expect(unstable_doesMiddlewareMatch({ config, url: path })).toBe(true);
   });
 });

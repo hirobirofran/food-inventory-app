@@ -14,6 +14,15 @@ describe('authConfig.callbacks.signIn（許可リスト）', () => {
     vi.stubEnv('AUTH_ALLOWED_EMAILS', 'a@example.com,b@example.com');
     expect(await signIn(verified('b@example.com'))).toBe(true);
   });
+  it('全角カンマ・読点・セミコロン・空白区切りも受ける', async () => {
+    vi.stubEnv('AUTH_ALLOWED_EMAILS', 'a@example.com，b@example.com');
+    expect(await signIn(verified('b@example.com'))).toBe(true);
+  });
+  it('s を含むアドレスを区切りと誤認しない', async () => {
+    vi.stubEnv('AUTH_ALLOWED_EMAILS', 'smithjohn@example.com');
+    expect(await signIn(verified('smithjohn@example.com'))).toBe(true);
+    expect(await signIn(verified('mithjohn@example.com'))).toBe(false);
+  });
   it('大小文字と前後の空白を無視する', async () => {
     vi.stubEnv('AUTH_ALLOWED_EMAILS', ' b@example.com , a@example.com ');
     expect(await signIn(verified('A@Example.com'))).toBe(true);

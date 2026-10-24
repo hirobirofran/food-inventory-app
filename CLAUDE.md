@@ -92,6 +92,8 @@ Issue を起票してから PR を作る。本文の書式は `.github/ISSUE_TEM
 | `docs/SETUP.md`         | 環境構築手順（Google Sheets・Claude API等）  |
 | `handoff/issues/i<N>/`  | Issue ごとの引き継ぎ（現状・再開手順）        |
 | `handoff/ideas/`        | 未来にやりたいこと（1 件 1 ファイル）         |
+| `docs/adr/`             | 決定の記録（ADR。1 件 1 ファイル、索引は README） |
+| `docs/agents/`          | エージェント向けの読み方・Issue の扱い・ラベル      |
 
 ## ユーザーの調理器具（AIレシピ提案時に必ず考慮）
 
@@ -109,4 +111,4 @@ Issue は GitHub Issues。`docs/agents/issue-tracker.md` を見る。
 
 ### Domain docs
 
-単一コンテキスト（`GLOSSARY.md`、`docs/adr/`）。作業前に `docs/adr/README.md` の索引を見て、関係する ADR を読む。ADR と食い違う提案は黙って上書きせず明示する。読み方と運用は `docs/agents/domain.md`。
+GLOSSARY と ADR はルートの 1 組だけ（`GLOSSARY.md`、`docs/adr/`）。作業前に `docs/adr/README.md` の索引を見て、関係する ADR を読む。ADR と食い違う提案は黙って上書きせず明示する。読み方と運用は `docs/agents/domain.md`。

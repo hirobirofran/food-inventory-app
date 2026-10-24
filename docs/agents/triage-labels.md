@@ -11,3 +11,5 @@
 | `wontfix` | `wontfix` | 対応しない |
 
 スキルが役割名で言ったら（例: 「AFK-ready のラベルを付ける」）、この表のラベル名を使う。語彙を変えるときは「このリポジトリのラベル」の列を直す。
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)

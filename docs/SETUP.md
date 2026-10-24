@@ -13,11 +13,13 @@ updated: 2026-10-25
 - Google アカウントを持っている
 - Vercel に本番とデモの 2 つのプロジェクトがあり、どちらも GitHub のこのリポジトリを取り込んでいる。作るときは、Vercel ダッシュボードでこのリポジトリを 2 回取り込み、名前を分ける（[Vercel: Deploying Git Repositories](https://vercel.com/docs/git)）。2 つの違いは 4 章「環境の定義」
 
+本番とデモは、Vercel の別々のプロジェクト。どちらのプロジェクトにも 2 つの環境がある。Production は main のコードを固定 URL で動かす環境、Preview は PR のコードを PR ごとの URL で動かす環境（プレビュー）。
+
 ---
 
 ## 1. 開発環境の準備
 
-ローカル（`npm run dev`）では Google ログインを使えないので、http://localhost:3000 を開いてもアプリの画面は使えない。戻り先の URL に localhost を登録しておらず、ログインを省く仕組みも無いため。ローカルで確かめられるのは `npm test`・`npx tsc --noEmit`・`npm run lint`（5 章）まで。画面の動きは、PR を作ると Vercel が作るデモ用プレビューで確かめる（4 章「PR の確認手順」）。
+ローカル（`npm run dev`）では Google ログインを使えないので、http://localhost:3000 を開いてもアプリの画面は使えない。Google に登録するログイン後の戻り先の URL（3-2）に localhost を入れておらず、ログインを省く仕組みも無いため。ローカルで確かめられるのは `npm test`・`npx tsc --noEmit`・`npm run lint`（5 章）まで。画面の動きは、PR を作ると Vercel が作るデモ用プレビューで確かめる（4 章「PR の確認手順」）。
 
 ```bash
 # リポジトリのクローン
@@ -30,7 +32,7 @@ npm install
 
 ---
 
-## 2. Google Sheets API の設定
+## 2. Google Cloud と Vercel の設定（ログイン以外）
 
 ### 2-1. Google Cloud Console でプロジェクト作成
 
@@ -68,27 +70,44 @@ npm install
 5. スプレッドシートIDをURLから取得
    - URL: `https://docs.google.com/spreadsheets/d/【ここがID】/edit`
 
-### 2-5. Vercel に入れる値（ログイン以外）
+### 2-5. Gemini の API キーを作る
 
-アプリは、Sheets に接続する値などを Vercel の環境変数から読む。次の表のとおりに入れる。画面の操作は 3-3 の手順 1〜6 と同じ。Production と Preview の違いは 3 章の冒頭にある。
+レシピ提案（AI）に使うキーを作る。
+
+1. Google AI Studio（https://aistudio.google.com/ ）を開く
+2. API キーを作る（[Google: Using Gemini API keys](https://ai.google.dev/gemini-api/docs/api-key)）
+3. 作ったキーを 2-6 の `GEMINI_API_KEY` に使う
+
+- 無料枠で使うときは、請求先アカウントの無いプロジェクトでキーを作る。請求先アカウントのある Google Cloud プロジェクトに紐づいたキーは、無料枠とは別の扱いになる
+
+### 2-6. Vercel に環境変数を入れる（ログイン以外）
+
+アプリは、Sheets に接続する値などを Vercel の環境変数から読む。下の表は、どのプロジェクトのどの環境に、何を入れるかを示す。
 
 | 変数 | 入れる値 | Type | 本番プロジェクト | デモプロジェクト |
 |---|---|---|---|---|
 | `GOOGLE_SPREADSHEET_ID` | 2-4 で取得したスプレッドシート ID。本番とデモで別のシート | Secret | Production | Production と Preview |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | 2-3 で作ったサービスアカウントのメールアドレス | Secret | Production | Production と Preview |
 | `GOOGLE_PRIVATE_KEY` | JSON キーの `private_key` の値 | Secret | Production | Production と Preview |
-| `GEMINI_API_KEY` | Google AI Studio で発行した API キー（レシピ提案に使う） | Secret | Production | Production と Preview |
+| `GEMINI_API_KEY` | 2-5 で作った API キー | Secret | Production | Production と Preview |
 | `NEXT_PUBLIC_APP_ENV` | `demo`（画面にデモのバナーを出す） | Config | 入れない | Production と Preview |
 
-`.env.local` を作るのは、デモのシートを入れ直す `npm run seed:demo` を使うときだけ。書く変数は `.env.local.example` にある。
+1. Vercel ダッシュボードで本番プロジェクト（food-inventory-app）を開く
+2. 「Settings」→「Environment Variables」を開く
+3. Key に変数名、Value に上の表の値を入れる
+4. Type を上の表のとおりに選ぶ
+5. Environments で、上の表の環境すべてにチェックを入れる。デモは Production と Preview に同時にチェックを入れ、1 回で保存する（両方が同じ値になる）
+6. 「Save」を押す
+7. 本番の行を全部入れたら、デモプロジェクト（food-inventory-demo）を開いて 2〜6 を行う
+
+- 変数は新しいデプロイにしか効かない。反映（Redeploy）は、ログインの変数も入れた後に 3-4 でまとめて行う
+- `.env.local` を作るのは、デモのシートを入れ直す `npm run seed:demo` を使うときだけ。書く変数は `.env.local.example` にある
 
 ---
 
 ## 3. Google アカウントでのログイン
 
 このアプリは、許可リストに載せた Google アカウントだけがログインできる（Auth.js）。許可リストは、Vercel の環境変数 `AUTH_ALLOWED_EMAILS` に書いたメールアドレス。設定する場所は Google Cloud と Vercel の 2 か所。この設定が済むまで、本番・デモ・プレビューのどれもログインできない。
-
-本番とデモは、Vercel の別々のプロジェクト。どちらのプロジェクトにも 2 つの環境がある。Production は main のコードを固定 URL で動かす環境、Preview は PR のコードを PR ごとの URL で動かす環境（プレビュー）。
 
 ### 3-1. AUTH_SECRET を作る
 
@@ -102,7 +121,7 @@ npm install
 〈登録後に確認〉は、Google Auth Platform を登録した後でないと画面に出ないため、表記をまだ確かめていない箇所。
 
 1. https://console.cloud.google.com/ で 2-1 のプロジェクトを選ぶ
-2. 「Google Auth Platform」を開く
+2. 上部の検索欄に「Google Auth Platform」と入れて開く
 3. 「Google Auth Platform はまだ構成されていません」と出たら、「開始」を押す。出なければ（登録済みなら）手順 5 へ進む
 4. 「プロジェクト構成」の画面で、次の 4 段を順に入れる。各段は「次へ」で進み、最後に「作成」を押す
    1. 「アプリ情報」: 「アプリ名」を入れ、「ユーザー サポートメール」で自分のアドレスを選ぶ
@@ -110,18 +129,18 @@ npm install
    3. 「連絡先情報」: 「メールアドレス」に自分のアドレスを入れる
    4. 「終了」: ポリシーへの同意を求められたら同意する〈登録後に確認〉
 5. 登録済みだったときは、左のメニューの「対象」で、ユーザーの種類が「外部」になっているかを見る〈登録後に確認〉
-6. 公開ステータスは「テスト」〈登録後に確認〉のままにする（アプリの公開は行わない）
-7. 左のメニューの「データアクセス」では、スコープを追加しない〈登録後に確認〉
-8. 左のメニューの「クライアント」で「クライアントを作成」〈登録後に確認〉を押す
-9. アプリケーションの種類で「ウェブ アプリケーション」〈登録後に確認〉を選ぶ
-10. 「承認済みのリダイレクト URI」〈登録後に確認〉に次の 2 つを追加して、「作成」〈登録後に確認〉を押す
+6. 左のメニューの「クライアント」で「クライアントを作成」〈登録後に確認〉を押す
+7. アプリケーションの種類で「ウェブ アプリケーション」〈登録後に確認〉を選ぶ
+8. 「承認済みのリダイレクト URI」〈登録後に確認〉に次の 2 つを追加して、「作成」〈登録後に確認〉を押す
     ```
     https://food-inventory-app-nu.vercel.app/api/auth/callback/google
     https://food-inventory-demo.vercel.app/api/auth/callback/google
     ```
-11. 表示されたダイアログは開いたままにして、3-3 に進む。ダイアログのクライアント ID とクライアントシークレットを 3-3 で使う
+9. 表示されたダイアログは開いたままにして、3-3 に進む。ダイアログのクライアント ID とクライアントシークレットを 3-3 で使う
 
-- 手順 10 の 1 行目は本番、2 行目はデモの固定 URL（4 章「環境の定義」の表と同じ）
+- 公開ステータスは「テスト」〈登録後に確認〉のままにする（左のメニューの「対象」で見える）。アプリの公開は行わない
+- 「データアクセス」でスコープは足さない〈登録後に確認〉
+- 手順 8 の 1 行目は本番、2 行目はデモの固定 URL（4 章「環境の定義」の表と同じ）
 - 名前・メール・プロフィールだけを求めるアプリは、テストのままでもテストユーザーの登録が要らず、7 日での失効もない
 - 誰が入れるかは Google ではなく、アプリの許可リスト（3-3）で決まる
 - リダイレクト URI は完全一致で照合され、ワイルドカードは使えない。localhost は登録しない
@@ -129,7 +148,7 @@ npm install
 
 ### 3-3. Vercel に環境変数を入れる
 
-下の表は、どのプロジェクトのどの環境に、何を入れるかを示す。
+2-6 と同じ手順で、下の表の値を入れる。表の見方も 2-6 と同じ。
 
 | 変数 | 入れる値 | Type | 本番プロジェクト | デモプロジェクト |
 |---|---|---|---|---|
@@ -139,14 +158,7 @@ npm install
 | `AUTH_ALLOWED_EMAILS` | ログインを許すメールアドレス（例: `alice@example.com,bob@example.com`）。プロジェクトごとに決める | Config | Production | Production と Preview |
 | `AUTH_REDIRECT_PROXY_URL` | `https://food-inventory-demo.vercel.app/api/auth` | Config | 入れない | Production と Preview |
 
-1. Vercel ダッシュボードで本番プロジェクト（food-inventory-app）を開く
-2. 「Settings」→「Environment Variables」を開く
-3. Key に変数名、Value に上の表の値を入れる
-4. Type を上の表のとおりに選ぶ
-5. Environments で、上の表の環境すべてにチェックを入れる。デモは Production と Preview に同時にチェックを入れ、1 回で保存する（両方が同じ値になる）
-6. 「Save」を押す
-7. 本番の行を全部入れたら、デモプロジェクト（food-inventory-demo）を開いて 2〜6 を行う
-8. 全部入れたら 3-4 に進む
+全部入れたら 3-4 に進む。
 
 - `AUTH_ALLOWED_EMAILS` は、Google アカウントに表示されるアドレスをそのまま半角カンマ区切りで書く。大文字小文字は区別しない。空だと誰もログインできない
 - Secret 型は保存後に値を読めず、Config 型にも変えられない。許可リストは人を足すたびに全文を見直すので Config にする
@@ -166,7 +178,7 @@ npm install
 
 ### 3-4. 反映して確かめる
 
-1. 本番プロジェクトの「Deployments」で、最新の Production デプロイの「…」→「Redeploy」を押す
+1. 本番プロジェクトの「Deployments」で、最新の Production デプロイの「…」→「Redeploy」を押し、確認のダイアログでも「Redeploy」を押す
 2. デモプロジェクトでも同じく Redeploy する
 3. 本番の固定 URL（https://food-inventory-app-nu.vercel.app）を開く
 4. 「Sign in with Google」のボタンがある英語の画面が出るので、ボタンを押す
@@ -197,7 +209,7 @@ npm install
 
 1. 3-1 で新しい値を作る
 2. 本番とデモの `AUTH_SECRET` を「Edit」で置き換える（デモは Production と Preview の両方）
-3. 両方のプロジェクトで Redeploy する
+3. 両方のプロジェクトで Redeploy する。確認中のデモ用プレビューも Redeploy する（4 章「環境変数の適用範囲」）
 
 - 全員がログアウトされる（強制的にログアウトさせたいときも同じ）。もう一度ログインすればよい
 
@@ -206,17 +218,17 @@ Google のクライアントシークレット:
 1. 「Google Auth Platform」→「クライアント」で対象のクライアントを開く
 2. 「シークレットを追加」〈登録後に確認〉を押す
 3. 新しい値を、本番とデモの `AUTH_GOOGLE_SECRET` に入れる（デモは Production と Preview の両方）
-4. 両方のプロジェクトで Redeploy して、ログインできることを確かめる
+4. 両方のプロジェクトで Redeploy して、ログインできることを確かめる。確認中のデモ用プレビューも Redeploy する（4 章「環境変数の適用範囲」）
 5. 古いシークレットを「無効にする」〈登録後に確認〉→ 削除する
 
 ### 3-7. うまくいかないとき
 
 | 症状 | 原因 | 直し方 |
 |---|---|---|
-| Google の画面に `redirect_uri_mismatch` | 戻り先 URL が登録と一致しない | エラーの詳細に出る redirect_uri を、3-2 の手順 10 の登録と見比べる |
+| Google の画面に `redirect_uri_mismatch` | 戻り先 URL が登録と一致しない | エラーの詳細に出る redirect_uri を、3-2 の手順 8 の登録と見比べる。redirect_uri がプレビューの URL なら、デモの Preview に `AUTH_REDIRECT_PROXY_URL` が無い（3-3） |
 | 「Server error」（Configuration）の画面 | `AUTH_SECRET`、`AUTH_GOOGLE_ID`、`AUTH_GOOGLE_SECRET` のどれかが無い、または Redeploy していない | 3-3、3-4 |
 | 「Access Denied」の画面（`/api/auth/error?error=AccessDenied`） | 許可リストに無い、または Google 側でメールが未確認 | 3-5 |
-| プレビューだけ、ログイン後にエラー | デモに `AUTH_REDIRECT_PROXY_URL` が無い、または `AUTH_SECRET` が Production と Preview で違う | 3-3 の表を見直し、Redeploy |
+| プレビューだけ、ログイン後にエラー | デモの Production に `AUTH_REDIRECT_PROXY_URL` が無い、または `AUTH_SECRET` が Production と Preview で違う | 3-3 の表を見直し、Redeploy |
 | 環境変数の保存時に「Production must use a separate value.」と出る | チームの設定「Separate Production Secret Values」が有効になっている | チームの「Settings」→「Security」の「Separate Production Secret Values」で、「Require Separate Values」を切る（Vercel のチームで Owner の役割が要る）。デモの Production と Preview には同じ値が要る |
 
 ### 参考
@@ -252,7 +264,7 @@ Google のクライアントシークレット:
 ### 環境変数の適用範囲
 
 - デモプロジェクト: 全変数を Production と Preview の両方に適用する。プレビューはデモのシートとデモの鍵で動く
-- 入れる変数の一覧は 2-5 と 3-3 の表
+- 入れる変数の一覧は 2-6 と 3-3 の表
 - デモプロジェクトの `AUTH_SECRET` は、Production と Preview で同じ値にする（理由は 3-3「プレビューでのログインの流れ」）。`AUTH_REDIRECT_PROXY_URL` はデモプロジェクトにだけ入れる（3-3）
 - 本番プロジェクト: Production のみ。本番用プレビューは意図的に動かさない（本番データに触らせないため）。確認には使わない
 - 変数を変えても、反映されるのは新しいデプロイだけ。既存のプレビューはダッシュボードから Redeploy する

@@ -4,8 +4,6 @@
 
 | 番号 | 題名 | status |
 | --- | --- | --- |
-| （まだ無い） | | |
-
-最初の ADR を足すときに「（まだ無い）」の行を消す。
+| 0001 | [依存パッケージの更新は、マイナー・パッチなら CI 通過でマージし、むやみに最新にしない](0001-dependency-update-policy.md) | accepted |
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

@@ -2,21 +2,9 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+Setup, local checks, and the deploy flow are described in [docs/SETUP.md](docs/SETUP.md) (in Japanese).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The app requires Google sign-in, and localhost is not registered as a sign-in redirect URL. So `npm run dev` does not show the app screens on http://localhost:3000. Local use is limited to `npm test`, `npx tsc --noEmit`, `npm run lint`, and `npm run seed:demo`. Screens are checked on Vercel preview deployments.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 

@@ -19,7 +19,7 @@ updated: 2026-10-25
 
 ## 1. 開発環境の準備
 
-コードを手元で直し、テスト・型チェック・lint（5 章）を走らせるための準備。次のコマンドで、リポジトリを手元に取ってきて、使うパッケージを入れる。
+コードを手元で直し、テスト・型チェック・lint（`npm test`・`npx tsc --noEmit`・`npm run lint`。5 章）を走らせるための準備。次のコマンドで、リポジトリを手元に取ってきて、使うパッケージを入れる。
 
 ```bash
 # リポジトリのクローン
@@ -143,10 +143,10 @@ npm install
 - 公開ステータスは「テスト」〈登録後に確認〉のままにする（左のメニューの「対象」で見える）。アプリの公開は行わない
 - 「データアクセス」でスコープは足さない〈登録後に確認〉
 - 手順 8 の 1 行目は本番、2 行目はデモの固定 URL（4 章「環境の定義」の表と同じ）
-- テストのアプリには、ふつうはテストユーザー（100 人まで）として登録した人しかログインできない。ただし名前・メール・プロフィール（スコープ `openid`・`email`・`profile`）だけを求めるアプリは例外で、テストユーザーの登録が要らない。ログインのとき、テスト中のアプリだという画面が出る〈登録後に確認〉（[Google: OAuth の公開ステータスとユーザーの種類](https://developers.google.com/identity/protocols/oauth2/production-readiness/overview)）。このアプリが求めるのはこの 3 つだけ（Auth.js の Google ログインの既定値）
+- テストのアプリには、ふつうはテストユーザー（100 人まで）として登録した人しかログインできない。ただし名前・メール・プロフィール（スコープ `openid`・`email`・`profile`）だけを求めるアプリは例外で、テストユーザーの登録が要らない（[Google: Manage App Audience](https://support.google.com/cloud/answer/15549945)、[Google: OAuth の公開ステータスとユーザーの種類](https://developers.google.com/identity/protocols/oauth2/production-readiness/overview)）。ログインのときにテスト中だという警告の画面が出るかは、この 2 つのページで書き方が違う（前者は出ない、後者は出る）。このアプリが求めるのはこの 3 つだけ（Auth.js の Google ログインの既定値）
 - 同じ例外で、テストのアプリにかかる「7 日での失効」（リフレッシュトークンの期限）もかからない（[Google: Refresh token expiration](https://developers.google.com/identity/protocols/oauth2#expiration)）
 - 誰が入れるかは Google ではなく、アプリの許可リスト（3-3）で決まる
-- Google Cloud の IAP（Identity-Aware Proxy）は使わない。IAP は Google Cloud のロードバランサや Cloud Run を通る通信だけを守る仕組みで、Vercel の URL に直接来る通信は通らないため（[Google: IAP の概要](https://docs.cloud.google.com/iap/docs/concepts-overview)）。IAP を使わないので、IAM の「IAP-secured Web App User」の役割も要らない
+- Google Cloud の IAP（Identity-Aware Proxy）は使わない。IAP は Google Cloud のロードバランサや Cloud Run を通る通信を守る仕組み（[Google: IAP の概要](https://docs.cloud.google.com/iap/docs/concepts-overview)）。Vercel のアプリに付けるには、有料のロードバランサと独自ドメインを用意してその裏に Vercel を置く必要があり、それでも Vercel の URL に直接来る通信は IAP を通らないため。IAP を使わないので、IAM の「IAP-secured Web App User」の役割も要らない
 - リダイレクト URI は完全一致で照合され、ワイルドカードは使えない。localhost は登録しない
 - クライアントシークレットは作成時にしか表示されない。失くしたら 3-6 で取り替える
 

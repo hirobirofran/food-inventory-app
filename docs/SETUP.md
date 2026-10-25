@@ -244,7 +244,7 @@ Google のクライアントシークレット:
 |---|---|---|
 | Google の画面に `redirect_uri_mismatch` | 戻り先 URL が登録と一致しない | エラーの詳細に出る redirect_uri を、3-2 の手順 8 の登録と見比べる。redirect_uri がプレビューの URL なら、デモの Preview に `AUTH_REDIRECT_PROXY_URL` が無い（3-3） |
 | 「Server error」（Configuration）の画面 | `AUTH_SECRET`、`AUTH_GOOGLE_ID`、`AUTH_GOOGLE_SECRET` のどれかが無い、または Redeploy していない | 3-3、3-4 |
-| 「Access Denied」の画面（`/api/auth/error?error=AccessDenied`） | 許可リストに無い、または Google 側でメールが未確認 | 3-5 |
+| 「Access Denied」の画面（`/api/auth/error?error=AccessDenied`） | 許可リストに無い。開いている環境（Production か Preview）に `AUTH_ALLOWED_EMAILS` が入っていない、または入れた後に Redeploy していない（このときは全員が拒否される）。Google 側でメールが未確認 | 3-3 の表、3-4、3-5 |
 | プレビューだけ、ログイン後にエラー | デモの Production に `AUTH_REDIRECT_PROXY_URL` が無い、または `AUTH_SECRET` が Production と Preview で違う | 3-3 の表を見直し、Redeploy |
 | 環境変数の保存時に「Production must use a separate value.」と出る | チームの設定「Separate Production Secret Values」が有効になっている | チームの「Settings」→「Security」の「Separate Production Secret Values」で、「Require Separate Values」を切る（Vercel のチームで Owner の役割が要る）。デモの Production と Preview には同じ値が要る |
 

@@ -10,7 +10,7 @@
 - ログアウトは無い。ログインのテストも無い（テストは `src/app/api/ai/suggest/route.test.ts` ほか 3 件のみ）
 - API は `ai/suggest`、`foods`、`foods/[id]`、`login` の 4 系統。cron / health は無い
 - 依存: 認証ライブラリは無い。`googleapis`、`@google/genai` のみ。Next.js 16.4.1、React 19.3.0、Node 24.x（`package.json`）
-- 環境: 本番とデモの 2 プロジェクトが同じ main から同時デプロイ。差は環境変数のみ。確認用サイトはデモ側で、Vercel Authentication（Standard Protection）が ON、固定 URL は対象外（`docs/SETUP.md` 5 章、`handoff/issues/i1/vercel-settings.md`）
+- 環境: 本番とデモの 2 プロジェクトが同じ main から同時デプロイ。差は環境変数のみ。確認用サイトはデモ側で、Vercel Authentication（Standard Protection）が ON、固定 URL は対象外（調査時点の `docs/SETUP.md` 5 章。今は 4 章「デプロイと確認の運用」、`handoff/issues/i1/vercel-settings.md`）
 - Google Cloud は Sheets 用に使用中（`docs/SETUP.md` 2 章）。OAuth クライアント（ログイン用）は未作成
 
 ## Auth.js（next-auth v5）
@@ -38,10 +38,10 @@
 - Issue #7 は OPEN（導入検討まで。Codex は「非本番 1 変数の PoC に縮小」と指摘）
 - 環境変数の出入り: 消す 2（`SITE_PASSWORD`、`AUTH_COOKIE_SECRET`）、増やす 4（`AUTH_SECRET`、`AUTH_GOOGLE_ID`、`AUTH_GOOGLE_SECRET`、許可リスト）+ デモ Preview に `AUTH_REDIRECT_PROXY_URL`。本番 6 回、デモ 7〜14 回
 
-## 未確認のまま残ること
+## 調査時点で確かめられなかったこと（2026-10-25 に実機で確認）
 
-- Next.js 16.4.1 + next-auth 5.0.0-beta.32 で `auth` を proxy に使った実成功例
-- `redirectProxyUrl` が Vercel Authentication 付きの確認用サイトで動くか（Google からデモ固定 URL に戻り、そこから確認用サイトへ転送。確認用サイト側の Vercel ログインの Cookie はブラウザに残っている前提）
-- 基本スコープだけの「テストモードのまま」運用の実機確認
+- Next.js 16.4.1 + next-auth 5.0.0-beta.32 で `auth` を proxy に使う: 動いた（PR #78 a7fba73。本番・デモ・確認用サイトでログインできた）
+- `redirectProxyUrl` が Vercel Authentication 付きの確認用サイトで動くか: 動いた（PR #80 のデモ側の確認用サイトでログインできた。Issue #77 のコメント 6399054748）
+- 基本スコープだけの「テストモードのまま」運用: テストユーザーを登録せず、警告の画面も出ずに同意画面へ進めた（PR #78 のコメント 6398649544）
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

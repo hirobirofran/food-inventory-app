@@ -118,7 +118,10 @@ npm install
 
 ### 3-1. AUTH_SECRET を作る
 
-1. 手元の端末で `openssl rand -base64 32` を実行する
+1. 手元の端末（PowerShell・ターミナルのどれでもよい）で次を実行する。Node.js（前提）だけで動く
+   ```
+   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+   ```
 2. 出力された文字列を 3-3 の `AUTH_SECRET` に使う。本番用とデモ用に 2 回実行して、別々の値にする
 
 - デモの Production と Preview には同じ値を入れる。理由は 3-3 の「プレビューでのログインの流れ」

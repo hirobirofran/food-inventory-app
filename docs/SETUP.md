@@ -103,9 +103,13 @@ npm install
 2. 「Settings」→「Environment Variables」を開く
 3. Key に変数名、Value に上の表の値を入れる
 4. Type を上の表のとおりに選ぶ
-5. Environments で、上の表の環境すべてにチェックを入れる。デモは Production と Preview に同時にチェックを入れ、1 回で保存する（両方が同じ値になる）
+5. Environments で、上の表の環境にチェックを入れる。デモで Production と Preview の両方に入れる変数は、ここでは Production だけにチェックを入れる
 6. 「Save」を押す
 7. 本番の行を全部入れたら、デモプロジェクト（food-inventory-demo）を開いて 2〜6 を行う
+8. デモの各行を編集し、Environments に Preview のチェックを足して保存する
+
+- 最初から Production と Preview の両方にチェックを入れて保存すると、Production 用と Preview 用の 2 行に分かれる。値を変えるとき（3-6 など）に 2 行とも直すことになるので、手順 5 と 8 のように 1 行にまとめる
+- Config の値を画面で見るときは、Vercel が本人確認（認証コードかパスキー）を求める
 
 - 変数は新しいデプロイにしか効かない。反映（Redeploy）は、ログインの変数も入れた後に 3-4 でまとめて行う
 - `.env.local` を作るのは、デモのシートを入れ直す `npm run seed:demo` を使うときだけ。書く変数は `.env.local.example` にある
@@ -150,9 +154,10 @@ npm install
 
 - 公開ステータスは「テスト」〈登録後に確認〉のままにする（左のメニューの「対象」で見える）。アプリの公開は行わない
 - 「データアクセス」でスコープは足さない
+- Google のログイン画面には、アプリ名ではなく、開いたサイトのホスト名（例: `food-inventory-demo.vercel.app`）が「〜にログイン」と出る（2026-10-25 に確かめた）。Google の表には、ブランディングの確認を受けていないアプリは名前とロゴを出さない、とある（上の「OAuth の公開ステータスとユーザーの種類」）
 - 作成画面の注記のとおり、設定が有効になるまで 5 分から数時間かかることがある。作ってすぐにログインを試して失敗したら、時間をおいてもう一度試す
 - 手順 8 の 1 行目は本番、2 行目はデモの固定 URL（4 章「環境の定義」の表と同じ）
-- テストのアプリには、ふつうはテストユーザー（100 人まで）として登録した人しかログインできない。ただし名前・メール・プロフィール（スコープ `openid`・`email`・`profile`）だけを求めるアプリは例外で、テストユーザーの登録が要らない（[Google: Manage App Audience](https://support.google.com/cloud/answer/15549945)、[Google: OAuth の公開ステータスとユーザーの種類](https://developers.google.com/identity/protocols/oauth2/production-readiness/overview)）。ログインのときにテスト中だという警告の画面が出るかは、この 2 つのページで書き方が違う（前者は出ない、後者は出る）。このアプリが求めるのはこの 3 つだけ（Auth.js の Google ログインの既定値）
+- テストのアプリには、ふつうはテストユーザー（100 人まで）として登録した人しかログインできない。ただし名前・メール・プロフィール（スコープ `openid`・`email`・`profile`）だけを求めるアプリは例外で、テストユーザーの登録が要らない（[Google: Manage App Audience](https://support.google.com/cloud/answer/15549945)、[Google: OAuth の公開ステータスとユーザーの種類](https://developers.google.com/identity/protocols/oauth2/production-readiness/overview)）。テストユーザーを登録していない状態で、警告の画面も出ずに Google の同意画面まで進めることを確かめた（2026-10-25）。2 つ目のページには「警告の画面が出る」とあるが、実際は 1 つ目のページのとおり出なかった。このアプリが求めるのはこの 3 つだけ（Auth.js の Google ログインの既定値）
 - 同じ例外で、テストのアプリにかかる「7 日での失効」（リフレッシュトークンの期限）もかからない（[Google: Refresh token expiration](https://developers.google.com/identity/protocols/oauth2#expiration)）
 - 誰が入れるかは Google ではなく、アプリの許可リスト（3-3）で決まる
 - Google Cloud の IAP（Identity-Aware Proxy）は使わない。IAP は Google Cloud のロードバランサや Cloud Run を通る通信を守る仕組み（[Google: IAP の概要](https://docs.cloud.google.com/iap/docs/concepts-overview)）。Vercel のアプリに付けるには、有料のロードバランサと独自ドメインを用意してその裏に Vercel を置く必要があり、それでも Vercel の URL に直接来る通信は IAP を通らないため。IAP を使わないので、IAM の「IAP-secured Web App User」の役割も要らない

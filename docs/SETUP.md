@@ -22,7 +22,7 @@ updated: 2026-10-27
 手元の環境（ローカル）を使うのは次の 2 つだけ。画面は動かさない。
 
 - コードを直し、push の前にテスト・型チェック・lint（`npm test`・`npx tsc --noEmit`・`npm run lint`。5 章）を通す。同じ 3 つは PR の CI でも走る
-- デモのシートを `npm run seed:demo` で入れ直す。このときだけ `.env.local` を作る（2-6）。`.env.local` に書くのはシート用の 4 つの変数で、ログイン用の値は書かない
+- デモのシートを `npm run seed:demo` で入れ直す。このときだけ `.env.local` を作る（2-6）。`.env.local` に書くのは、シート用の 4 つの変数と、6 章のスクリプトに渡す変数。ログイン用の値は書かない
 
 次のコマンドで、リポジトリを手元に取ってきて、使うパッケージを入れる。
 
@@ -111,7 +111,7 @@ npm install
 - 最初から Production と Preview の両方にチェックを入れて保存すると、Production 用と Preview 用の 2 行に分かれる（2026-10-25 に確かめた）。値を変えるとき（3-6 など）に 2 行とも直すことになるので、手順 5 と 8 のように 1 行にまとめる
 - Config の値を画面で見るときは、Vercel が本人確認（認証コードかパスキー）を求める
 - 変数は新しいデプロイにしか効かない。反映（Redeploy）は、ログインの変数も入れた後に 3-4 でまとめて行う
-- `.env.local` を作るのは、デモのシートを入れ直す `npm run seed:demo` を使うときだけ。書く変数は `.env.local.example` にある
+- `.env.local` を作るのは、デモのシートを入れ直す `npm run seed:demo` と、6 章のスクリプトを使うときだけ。書く変数は `.env.local.example` にある
 
 ---
 
@@ -310,7 +310,9 @@ npx vitest    # 変更を監視して再実行
 
 GCP の設定を Terraform で管理し、GitHub Actions から動かすための土台を、`infra/bootstrap/bootstrap.sh` で作る。Terraform は state（管理している物の記録）を置く場所が無いと始められず、Actions が鍵を持たずに GCP に入る仕組み（Workload Identity Federation、以下 WIF）も先に要る。そのため、この 2 つは Terraform ではなく gcloud のスクリプトで作る。
 
-スクリプトが作る物（無ければ作り、あれば望む設定に直す）:
+用語: SA はサービスアカウント（プログラムが使う Google Cloud のアカウント）。plan は Terraform が変更の予定を出す操作、apply はその変更を実際に反映する操作。seed は、デモのシートにデータを入れ直す `npm run seed:demo` のこと（1 章）。
+
+スクリプトが作る物（無ければ作り、あれば、このスクリプトが決めた設定に直す）:
 
 - API の有効化（`iamcredentials`、`sts`。ほかに、スクリプト自身が使う `iam` と `cloudresourcemanager`）
 - state を置くバケット（バージョニングあり、公開を防ぐ設定）
@@ -322,6 +324,7 @@ GCP の設定を Terraform で管理し、GitHub Actions から動かすため�
 ### 6-1. 前提
 
 - Git Bash（Windows）または bash（macOS・Linux）で動かす
+- Google Cloud CLI（`gcloud`）と GitHub CLI（`gh`）が入っている
 - `gcloud auth login` が済んでいる。そのアカウントは、対象プロジェクトのオーナー（`roles/owner`）であること
 - `gh auth login` が済んでいる。Secrets を登録できる権限（このリポジトリの管理者）があること
 
@@ -332,9 +335,9 @@ GCP の設定を Terraform で管理し、GitHub Actions から動かすため�
 | 名前 | 意味 |
 |---|---|
 | `GCP_PROJECT_ID` | Google Cloud のプロジェクト ID |
-| `GITHUB_REPO` | このリポジトリ（`<オーナー>/<リポジトリ名>`） |
-| `TF_STATE_BUCKET` | state を置くバケットの名前（全世界で一意） |
-| `LOG_BUCKET` | Actions のログを置くバケットの名前（全世界で一意） |
+| `GITHUB_REPO` | このリポジトリ（`<オーナー>/<リポジトリ名>`。大文字と小文字は GitHub の URL の表記どおりに書く。違うと、ログインはできても権限を借りられない） |
+| `TF_STATE_BUCKET` | state を置くバケットの名前（Cloud Storage 全体で一意。ほかの人がすでに使っている名前は使えない） |
+| `LOG_BUCKET` | Actions のログを置くバケットの名前（同上） |
 | `APP_SA_EMAIL` | アプリが使う今のサービスアカウントのメールアドレス（`GOOGLE_SERVICE_ACCOUNT_EMAIL` と同じ値） |
 | `VERCEL_TEAM_SLUG` | Vercel のチームの slug（ダッシュボードの URL に出る名前） |
 | `VERCEL_PROD_PROJECT` | Vercel の本番プロジェクトの名前 |
@@ -343,39 +346,45 @@ GCP の設定を Terraform で管理し、GitHub Actions から動かすため�
 
 ### 6-3. 実行
 
+リポジトリ直下で動かす。`.env.local` を使わず、環境変数で渡す場合の例:
+
 ```bash
+# 値は自分の物に置き換える
+export GCP_PROJECT_ID=<GCP_PROJECT_ID>
+export GITHUB_REPO=<オーナー>/<リポジトリ名>
+# 残りの 7 つも同じように export する
 bash infra/bootstrap/bootstrap.sh
 ```
 
-1 行ずつ「作った」「更新した」「そのまま」を出し、最後に Secrets を登録する。ブラウザで許可を求められたら許可する。
+1 行ずつ「作った」「更新した」「そのまま」を出し、最後に Secrets を登録する。gcloud のログインの有効期限が切れていると、ブラウザで再ログインを求められることがある。出力にはプロジェクト ID やバケットの名前などの識別子が含まれるので、Issue や PR に貼らない。
 
-2 回目以降も動かしてよい。ある物は作らず、設定が違えば望む設定に直す。権限が足りないと分かったときは、スクリプトの権限の一覧に足してから動かし直す。
+2 回目以降も動かしてよい。ある物は作らず、設定が違えば、このスクリプトが決めた設定に直す。権限が足りないと分かったときは、スクリプトの権限の一覧に足してから動かし直す。
 
 ### 6-4. GitHub Secrets の表
 
-Secrets には説明を書く欄が無いので、ここに意味と取り出し方を残す。値を入れ直すときは、GitHub の Settings → Secrets and variables → Actions で、その Secret の「Update」を押して新しい値を入れる。入れ直さずにスクリプトをもう一度動かしても、同じ値で上書きされる。Variables は使わない（公開リポジトリでは、Variables の値がログで伏せ字にならないため）。
+Secrets には説明を書く欄が無いので、ここに意味と取り出し方を残す。値を入れ直すときは、GitHub の Settings → Secrets and variables → Actions で、その Secret の「Update」を押して新しい値を入れる。入れ直さずにスクリプトをもう一度動かしても、同じ値で上書きされる。値を変えたいときは、環境変数か `.env.local` を直してスクリプトを動かし直してもよい。Variables は使わない（公開リポジトリでは、Variables の値がログで伏せ字にならないため）。
 
 | 名前 | 意味 | 値の取り出し方 |
 |---|---|---|
 | `GCP_PROJECT_ID` | Google Cloud のプロジェクト ID | Cloud Console の上部のプロジェクト選択、または `gcloud projects list` |
 | `GCP_WIF_PROVIDER` | GitHub 用 WIF プロバイダの完全な名前 | `gcloud iam workload-identity-pools providers describe github --project=<GCP_PROJECT_ID> --location=global --workload-identity-pool=github --format='value(name)'` |
-| `TF_PLAN_SA` | plan 用 SA のメールアドレス | `gcloud iam service-accounts list --project=<GCP_PROJECT_ID>` の `tf-plan` の行。Cloud Console の「IAM と管理」→「サービスアカウント」でも見られる |
-| `TF_APPLY_SA` | apply 用 SA のメールアドレス | 同上の `tf-apply` の行 |
-| `TF_STATE_BUCKET` | state のバケットの名前 | `gcloud storage buckets list --project=<GCP_PROJECT_ID>`、または Cloud Console の「Cloud Storage」→「バケット」 |
-| `LOG_BUCKET` | ログのバケットの名前 | 同上 |
-| `APP_SA_EMAIL` | アプリが使う SA のメールアドレス | Vercel の環境変数 `GOOGLE_SERVICE_ACCOUNT_EMAIL` と同じ値。Cloud Console の「IAM と管理」→「サービスアカウント」でも見られる |
-| `VERCEL_TEAM_SLUG` | Vercel のチームの slug | Vercel ダッシュボードのチームの Settings → General |
+| `TF_PLAN_SA` | plan 用 SA のメールアドレス | `gcloud iam service-accounts list --project=<GCP_PROJECT_ID> --filter='email~^tf-plan@' --format='value(email)'`。Cloud Console の「IAM と管理」→「サービス アカウント」でも見られる |
+| `TF_APPLY_SA` | apply 用 SA のメールアドレス | 上の `tf-plan` を `tf-apply` に変えたもの |
+| `TF_STATE_BUCKET` | state のバケットの名前 | `.env.local` の同じ名前の行。無ければ `gcloud storage buckets list --project=<GCP_PROJECT_ID> --format='value(name,versioning_enabled)'` で、バージョニングが有効（True）のほう。Cloud Console の「Cloud Storage」→「バケット」でも見られる |
+| `LOG_BUCKET` | ログのバケットの名前 | 同じ一覧で、30 日で削除するライフサイクルが付いているほう（`--format='value(name,lifecycle_config)'`） |
+| `APP_SA_EMAIL` | アプリが使う SA のメールアドレス | Vercel の環境変数 `GOOGLE_SERVICE_ACCOUNT_EMAIL` と同じ値。Cloud Console の「IAM と管理」→「サービス アカウント」でも見られる |
+| `VERCEL_TEAM_SLUG` | Vercel のチームの slug | Vercel ダッシュボードのチームの Settings → General の「Team URL」（`vercel.com/` の後ろの部分） |
 | `VERCEL_PROD_PROJECT` | 本番プロジェクトの名前 | Vercel ダッシュボードのプロジェクト一覧 |
 | `VERCEL_DEMO_PROJECT` | デモプロジェクトの名前 | 同上 |
 | `OWNER_EMAIL` | seed で SA の権限を借りる人の Google アカウント | 本人のアカウント（`gcloud auth list`） |
 
-`APP_SA_EMAIL` 以降の Secrets は、Terraform が Vercel から GCP への WIF を設定するときに使う。
+Secrets の使い道: `GCP_PROJECT_ID` から `LOG_BUCKET` までの 6 つは、Terraform のワークフローが GCP に入り、state とログを置くときに使う。`APP_SA_EMAIL` は、今あるアプリの SA を Terraform の管理に取り込むときに使う。残りの 4 つ（`VERCEL_TEAM_SLUG`、`VERCEL_PROD_PROJECT`、`VERCEL_DEMO_PROJECT`、`OWNER_EMAIL`）は、Vercel から GCP への WIF と、手元の seed がアプリの SA の権限を借りる許可を、Terraform で作るときに使う。
 
 ### 6-5. state のロックについて
 
-- Terraform は、state を書き換える操作のとき、バケットにロックのファイルを作って同時実行を防ぐ。plan 用 SA は state を読むだけにしてあるので、Actions の plan はロックを取らない `-lock=false` で動かす前提にしている
-- 残るリスクは、apply の途中の state を plan が読むこと。plan と apply は同じ concurrency グループで 1 本ずつ動かす予定なので小さい
-- 読むだけで plan が通るかは、公式文書では確かめられなかった。最初の plan で確かめる
+- Terraform は、state を書き換えるときに、バケットにロックのファイルを作って同時に動かないようにする。plan 用 SA は state を読むだけにしてあるので、Actions の plan はロックを取らない設定（`-lock=false`）で動かす
+- そのため、apply の途中の state を plan が読むことはありうる。plan と apply は、同じ concurrency グループ（GitHub Actions で、同じグループの実行を同時に走らせず 1 本ずつ並べる設定）で動かして、これを避ける
+- 読むだけの権限で plan が通ることは、Terraform の公式文書には書かれていない（公式文書は Storage Object Admin を求めている）。plan が権限の不足で失敗したら、この節を見直す
 
 出典:
 

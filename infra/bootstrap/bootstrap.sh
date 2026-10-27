@@ -15,9 +15,6 @@
 # =====================================================================
 set -euo pipefail
 
-# Git Bash が "/" で始まる引数をファイルパスと誤解して書き換えるのを止める
-export MSYS_NO_PATHCONV=1
-
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ENV_FILE="$ROOT/.env.local"
 
@@ -42,8 +39,9 @@ die() { printf 'エラー: %s\n' "$*" >&2; exit 1; }
 # ---------------------------------------------------------------------
 command -v gcloud >/dev/null 2>&1 || die "gcloud が見つかりません。Google Cloud CLI を入れてください。"
 command -v gh >/dev/null 2>&1 || die "gh（GitHub CLI）が見つかりません。"
-[ -n "$(gcloud auth list --filter=status:ACTIVE --format='value(account)' 2>/dev/null)" ] \
-  || die "gcloud にログインしていません。'gcloud auth login' を実行してください。"
+acct="$(gcloud auth list --filter=status:ACTIVE --format='value(account)')" \
+  || die "gcloud を実行できませんでした（上のエラーを見てください）。"
+[ -n "$acct" ] || die "gcloud にログインしていません。'gcloud auth login' を実行してください。"
 gh auth status >/dev/null 2>&1 || die "gh にログインしていません。'gh auth login' を実行してください。"
 
 # ---------------------------------------------------------------------
@@ -100,8 +98,9 @@ PRINCIPAL_BASE="principalSet://iam.googleapis.com/${POOL_PATH}"
 # 3. API の有効化
 #    iamcredentials・sts: WIF で SA の権限を借りるために要る。
 #    iam・cloudresourcemanager: このスクリプトが SA・プール・プロジェクトの権限を扱うために要る。
+#    storage: バケットを作るために要る。
 # ---------------------------------------------------------------------
-for api in iam.googleapis.com cloudresourcemanager.googleapis.com iamcredentials.googleapis.com sts.googleapis.com; do
+for api in iam.googleapis.com cloudresourcemanager.googleapis.com iamcredentials.googleapis.com sts.googleapis.com storage.googleapis.com; do
   if [ -n "$(gcloud services list --enabled --project "$GCP_PROJECT_ID" \
         --filter="config.name=$api" --format='value(config.name)')" ]; then
     say "そのまま" "API $api は有効"
@@ -115,12 +114,11 @@ done
 # 4. バケット
 # ---------------------------------------------------------------------
 LIFECYCLE_FILE="$(mktemp)"
-trap 'rm -f "$LIFECYCLE_FILE"' EXIT
+ERR_FILE="$(mktemp)"
+trap 'rm -f "$LIFECYCLE_FILE" "$ERR_FILE"' EXIT
 cat >"$LIFECYCLE_FILE" <<JSON
 {"rule": [{"action": {"type": "Delete"}, "condition": {"age": ${LOG_RETENTION_DAYS}}}]}
 JSON
-# gcloud は Windows のネイティブ版なので、Git Bash のパスを Windows 形式に直す
-LIFECYCLE_FILE_ARG="$(cygpath -m "$LIFECYCLE_FILE" 2>/dev/null || printf '%s' "$LIFECYCLE_FILE")"
 
 bucket_state() {
   gcloud storage buckets describe "gs://$1" \
@@ -134,6 +132,12 @@ ensure_bucket() {
     gcloud storage buckets create "gs://$bucket" --project "$GCP_PROJECT_ID" \
       --location "$REGION" --uniform-bucket-level-access --public-access-prevention
     created=yes
+  else
+    local owner_number
+    owner_number="$(gcloud storage buckets describe "gs://$bucket" --raw --format='value(projectNumber)')"
+    if [ "$owner_number" != "$PROJECT_NUMBER" ]; then
+      die "バケット $bucket は、対象のプロジェクト（番号 $PROJECT_NUMBER）ではなく、別のプロジェクト（番号 $owner_number）にあります。名前を変えてください。"
+    fi
   fi
   location="$(gcloud storage buckets describe "gs://$bucket" --format='value(location)')"
   if [ "$(printf '%s' "$location" | tr '[:upper:]' '[:lower:]')" != "$REGION" ]; then
@@ -142,7 +146,7 @@ ensure_bucket() {
   before="$(bucket_state "$bucket")"
   local args=(--uniform-bucket-level-access --public-access-prevention)
   if [ "$versioning" = yes ]; then args+=(--versioning); else args+=(--no-versioning); fi
-  if [ "$lifecycle" = yes ]; then args+=(--lifecycle-file "$LIFECYCLE_FILE_ARG"); fi
+  if [ "$lifecycle" = yes ]; then args+=(--lifecycle-file "$LIFECYCLE_FILE"); fi
   gcloud storage buckets update "gs://$bucket" "${args[@]}" >/dev/null
   after="$(bucket_state "$bucket")"
   if [ "$created" = yes ]; then
@@ -165,8 +169,12 @@ ISSUER_URI="https://token.actions.githubusercontent.com"
 ATTRIBUTE_MAPPING="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.ref=assertion.ref"
 ATTRIBUTE_CONDITION="assertion.repository == '${GITHUB_REPO}'"
 
-if gcloud iam workload-identity-pools describe "$POOL_ID" --project "$GCP_PROJECT_ID" \
-     --location global >/dev/null 2>&1; then
+if pool_status="$(gcloud iam workload-identity-pools describe "$POOL_ID" --project "$GCP_PROJECT_ID" \
+     --location global --format='value(state,disabled)' 2>/dev/null)"; then
+  case "$pool_status" in
+    *DELETED*|*True*)
+      die "WIF プール $POOL_ID は削除済みか無効です（状態: $pool_status）。Cloud Console か gcloud で復旧するか、別の名前にしてください。自動では直しません。" ;;
+  esac
   say "そのまま" "WIF プール $POOL_ID"
 else
   gcloud iam workload-identity-pools create "$POOL_ID" --project "$GCP_PROJECT_ID" \
@@ -183,12 +191,16 @@ provider_args=(
 if provider_json="$(gcloud iam workload-identity-pools providers describe "$PROVIDER_ID" \
      --project "$GCP_PROJECT_ID" --location global --workload-identity-pool "$POOL_ID" \
      --format=json 2>/dev/null)"; then
+  # 削除済みや無効のプロバイダは、トークンの交換ができない。自動では直さず止める
+  if [[ "$provider_json" == *'"state": "DELETED"'* || "$provider_json" == *'"disabled": true'* ]]; then
+    die "WIF プロバイダ $PROVIDER_ID は削除済みか無効です。Cloud Console か gcloud で復旧するか、別の名前にしてください。自動では直しません。"
+  fi
   # 属性の対応表・条件・発行元が望む形か確かめる。違えば更新する
-  if printf '%s' "$provider_json" | grep -qF "\"attributeCondition\": \"${ATTRIBUTE_CONDITION}\"" \
-     && printf '%s' "$provider_json" | grep -qF '"google.subject": "assertion.sub"' \
-     && printf '%s' "$provider_json" | grep -qF '"attribute.repository": "assertion.repository"' \
-     && printf '%s' "$provider_json" | grep -qF '"attribute.ref": "assertion.ref"' \
-     && printf '%s' "$provider_json" | grep -qF "\"issuerUri\": \"${ISSUER_URI}\""; then
+  if [[ "$provider_json" == *"\"attributeCondition\": \"${ATTRIBUTE_CONDITION}\""* \
+     && "$provider_json" == *'"google.subject": "assertion.sub"'* \
+     && "$provider_json" == *'"attribute.repository": "assertion.repository"'* \
+     && "$provider_json" == *'"attribute.ref": "assertion.ref"'* \
+     && "$provider_json" == *"\"issuerUri\": \"${ISSUER_URI}\""* ]]; then
     say "そのまま" "WIF プロバイダ $PROVIDER_ID"
   else
     gcloud iam workload-identity-pools providers update-oidc "$PROVIDER_ID" "${provider_args[@]}" >/dev/null
@@ -218,39 +230,54 @@ ensure_sa "$APPLY_SA_NAME" "$APPLY_SA" "Terraform apply"
 # ---------------------------------------------------------------------
 # 7. 権限の付与（無ければ付ける。付けた後に反映が遅れることがあるので数回やり直す）
 # ---------------------------------------------------------------------
-# bind_role <project|sa|bucket> <対象> <メンバー> <ロール>
-bind_role() {
-  local kind="$1" target="$2" member="$3" role="$4" existing i
+# get_bound <project|sa|bucket> <対象> <メンバー> <ロール>  ... 付いていれば、そのロールを出す
+get_bound() {
+  local kind="$1" target="$2" member="$3" role="$4"
   local filter="bindings.role=\"$role\" AND bindings.members=\"$member\""
   case "$kind" in
-    project) existing="$(gcloud projects get-iam-policy "$target" --flatten='bindings[].members' \
-               --filter="$filter" --format='value(bindings.role)')" ;;
-    sa)      existing="$(gcloud iam service-accounts get-iam-policy "$target" --project "$GCP_PROJECT_ID" \
-               --flatten='bindings[].members' --filter="$filter" --format='value(bindings.role)')" ;;
-    bucket)  existing="$(gcloud storage buckets get-iam-policy "gs://$target" --flatten='bindings[].members' \
-               --filter="$filter" --format='value(bindings.role)')" ;;
+    project) gcloud projects get-iam-policy "$target" --flatten='bindings[].members' \
+               --filter="$filter" --format='value(bindings.role)' ;;
+    sa)      gcloud iam service-accounts get-iam-policy "$target" --project "$GCP_PROJECT_ID" \
+               --flatten='bindings[].members' --filter="$filter" --format='value(bindings.role)' ;;
+    bucket)  gcloud storage buckets get-iam-policy "gs://$target" --flatten='bindings[].members' \
+               --filter="$filter" --format='value(bindings.role)' ;;
   esac
-  if [ -n "$existing" ]; then
-    say "そのまま" "$kind $target: $role"
-    return 0
-  fi
+}
+
+# run_bind <project|sa|bucket> <対象> <メンバー> <ロール>  ... 付与を 1 回試す
+run_bind() {
+  local kind="$1" target="$2" member="$3" role="$4"
+  case "$kind" in
+    project) gcloud projects add-iam-policy-binding "$target" --member "$member" --role "$role" \
+               --condition=None --quiet ;;
+    sa)      gcloud iam service-accounts add-iam-policy-binding "$target" --project "$GCP_PROJECT_ID" \
+               --member "$member" --role "$role" --quiet ;;
+    bucket)  gcloud storage buckets add-iam-policy-binding "gs://$target" --member "$member" \
+               --role "$role" --quiet ;;
+  esac
+}
+
+# bind_role <project|sa|bucket> <対象> <メンバー> <ロール>
+# 確認も付与も、作った直後は見えないことがあるので数回やり直す。最後に失敗したら gcloud のエラーを出す
+bind_role() {
+  local kind="$1" target="$2" member="$3" role="$4" existing i err=""
   for i in 1 2 3 4 5; do
-    local ok=no
-    case "$kind" in
-      project) gcloud projects add-iam-policy-binding "$target" --member "$member" --role "$role" \
-                 --condition=None --quiet >/dev/null 2>&1 && ok=yes ;;
-      sa)      gcloud iam service-accounts add-iam-policy-binding "$target" --project "$GCP_PROJECT_ID" \
-                 --member "$member" --role "$role" --quiet >/dev/null 2>&1 && ok=yes ;;
-      bucket)  gcloud storage buckets add-iam-policy-binding "gs://$target" --member "$member" \
-                 --role "$role" --quiet >/dev/null 2>&1 && ok=yes ;;
-    esac
-    if [ "$ok" = yes ]; then
-      say "作った" "$kind $target: $role を付与"
-      return 0
+    if existing="$(get_bound "$kind" "$target" "$member" "$role" 2>"$ERR_FILE")"; then
+      if [ -n "$existing" ]; then
+        say "そのまま" "$kind $target: $role"
+        return 0
+      fi
+      if err="$(run_bind "$kind" "$target" "$member" "$role" 2>&1 >/dev/null)"; then
+        say "作った" "$kind $target: $role を付与"
+        return 0
+      fi
+    else
+      err="$(cat "$ERR_FILE")"
     fi
     sleep 5
   done
-  die "$kind $target に $role を付けられませんでした。"
+  printf '%s\n' "$err" >&2
+  die "$kind $target に $role を付けられませんでした（上が gcloud のエラー）。"
 }
 
 # SA を借りる許可

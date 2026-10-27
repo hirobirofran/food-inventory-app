@@ -1,7 +1,7 @@
 ---
 title: 環境構築手順書
 description: 食材管理アプリを Google Cloud と Vercel で動かすための設定手順と、日々の運用
-updated: 2026-10-25
+updated: 2026-10-27
 ---
 
 # 環境構築手順書
@@ -303,6 +303,86 @@ npx vitest    # 変更を監視して再実行
 - API ルートのテストは `src/app/api/**/route.test.ts`（Node 環境）。外部 SDK は `vi.mock` で差し替え、参照する `vi.fn()` は `vi.hoisted` で先に作る。時間に依存する処理は `vi.useFakeTimers()` と `vi.advanceTimersByTimeAsync()` で進める。例: `src/app/api/ai/suggest/route.test.ts`
 - 各テスト後の DOM の片付けは `vitest.setup.ts` が行い、`vi.spyOn` のモックは `restoreMocks: true` で自動復元される（`vi.fn()` に与えた実装は戻らないので `beforeEach` で `mockReset()` する）。設定は `vitest.config.mts`
 - CI（`.github/workflows/ci.yml`）は `npm ci` → `npm test` → `npx tsc --noEmit` → `npm run lint` を順に実行する。docs だけの変更では動かない
+
+---
+
+## 6. Terraform 用の WIF とバケットを作る（初回に 1 回）
+
+GCP の設定を Terraform で管理し、GitHub Actions から動かすための土台を、`infra/bootstrap/bootstrap.sh` で作る。Terraform は state（管理している物の記録）を置く場所が無いと始められず、Actions が鍵を持たずに GCP に入る仕組み（Workload Identity Federation、以下 WIF）も先に要る。そのため、この 2 つは Terraform ではなく gcloud のスクリプトで作る。
+
+スクリプトが作る物（無ければ作り、あれば望む設定に直す）:
+
+- API の有効化（`iamcredentials`、`sts`。ほかに、スクリプト自身が使う `iam` と `cloudresourcemanager`）
+- state を置くバケット（バージョニングあり、公開を防ぐ設定）
+- Actions のログを置くバケット（30 日で自動削除、公開を防ぐ設定）。state のバケットとは別にする。plan はどのブランチからも動くので、同じバケットだとログを書く権限が state にも届くため
+- GitHub 用の WIF のプールとプロバイダ（名前はどちらも `github`）。このリポジトリのトークンだけを通す
+- plan 用 SA（`tf-plan`）と apply 用 SA（`tf-apply`）。plan 用はこのリポジトリのどのブランチからでも借りられ、apply 用は `refs/heads/main` からだけ借りられる
+- GitHub Secrets 11 個（下の表）
+
+### 6-1. 前提
+
+- Git Bash（Windows）または bash（macOS・Linux）で動かす
+- `gcloud auth login` が済んでいる。そのアカウントは、対象プロジェクトのオーナー（`roles/owner`）であること
+- `gh auth login` が済んでいる。Secrets を登録できる権限（このリポジトリの管理者）があること
+
+### 6-2. 渡す環境変数
+
+次の 9 個を、環境変数か、リポジトリ直下の `.env.local` の `名前=値` の行で渡す。環境変数があればそれを使い、無いものだけ `.env.local` から読む。足りないものがあると、名前を全部並べて止まる。値はこの文書にもリポジトリにも書かない。
+
+| 名前 | 意味 |
+|---|---|
+| `GCP_PROJECT_ID` | Google Cloud のプロジェクト ID |
+| `GITHUB_REPO` | このリポジトリ（`<オーナー>/<リポジトリ名>`） |
+| `TF_STATE_BUCKET` | state を置くバケットの名前（全世界で一意） |
+| `LOG_BUCKET` | Actions のログを置くバケットの名前（全世界で一意） |
+| `APP_SA_EMAIL` | アプリが使う今のサービスアカウントのメールアドレス（`GOOGLE_SERVICE_ACCOUNT_EMAIL` と同じ値） |
+| `VERCEL_TEAM_SLUG` | Vercel のチームの slug（ダッシュボードの URL に出る名前） |
+| `VERCEL_PROD_PROJECT` | Vercel の本番プロジェクトの名前 |
+| `VERCEL_DEMO_PROJECT` | Vercel のデモプロジェクトの名前 |
+| `OWNER_EMAIL` | 手元の seed でアプリの SA の権限を借りる人の Google アカウント |
+
+### 6-3. 実行
+
+```bash
+bash infra/bootstrap/bootstrap.sh
+```
+
+1 行ずつ「作った」「更新した」「そのまま」を出し、最後に Secrets を登録する。ブラウザで許可を求められたら許可する。
+
+2 回目以降も動かしてよい。ある物は作らず、設定が違えば望む設定に直す。権限が足りないと分かったときは、スクリプトの権限の一覧に足してから動かし直す。
+
+### 6-4. GitHub Secrets の表
+
+Secrets には説明を書く欄が無いので、ここに意味と取り出し方を残す。値を入れ直すときは、GitHub の Settings → Secrets and variables → Actions で、その Secret の「Update」を押して新しい値を入れる。入れ直さずにスクリプトをもう一度動かしても、同じ値で上書きされる。Variables は使わない（公開リポジトリでは、Variables の値がログで伏せ字にならないため）。
+
+| 名前 | 意味 | 値の取り出し方 |
+|---|---|---|
+| `GCP_PROJECT_ID` | Google Cloud のプロジェクト ID | Cloud Console の上部のプロジェクト選択、または `gcloud projects list` |
+| `GCP_WIF_PROVIDER` | GitHub 用 WIF プロバイダの完全な名前 | `gcloud iam workload-identity-pools providers describe github --project=<GCP_PROJECT_ID> --location=global --workload-identity-pool=github --format='value(name)'` |
+| `TF_PLAN_SA` | plan 用 SA のメールアドレス | `gcloud iam service-accounts list --project=<GCP_PROJECT_ID>` の `tf-plan` の行。Cloud Console の「IAM と管理」→「サービスアカウント」でも見られる |
+| `TF_APPLY_SA` | apply 用 SA のメールアドレス | 同上の `tf-apply` の行 |
+| `TF_STATE_BUCKET` | state のバケットの名前 | `gcloud storage buckets list --project=<GCP_PROJECT_ID>`、または Cloud Console の「Cloud Storage」→「バケット」 |
+| `LOG_BUCKET` | ログのバケットの名前 | 同上 |
+| `APP_SA_EMAIL` | アプリが使う SA のメールアドレス | Vercel の環境変数 `GOOGLE_SERVICE_ACCOUNT_EMAIL` と同じ値。Cloud Console の「IAM と管理」→「サービスアカウント」でも見られる |
+| `VERCEL_TEAM_SLUG` | Vercel のチームの slug | Vercel ダッシュボードのチームの Settings → General |
+| `VERCEL_PROD_PROJECT` | 本番プロジェクトの名前 | Vercel ダッシュボードのプロジェクト一覧 |
+| `VERCEL_DEMO_PROJECT` | デモプロジェクトの名前 | 同上 |
+| `OWNER_EMAIL` | seed で SA の権限を借りる人の Google アカウント | 本人のアカウント（`gcloud auth list`） |
+
+`APP_SA_EMAIL` 以降の Secrets は、Terraform が Vercel から GCP への WIF を設定するときに使う。
+
+### 6-5. state のロックについて
+
+- Terraform は、state を書き換える操作のとき、バケットにロックのファイルを作って同時実行を防ぐ。plan 用 SA は state を読むだけにしてあるので、Actions の plan はロックを取らない `-lock=false` で動かす前提にしている
+- 残るリスクは、apply の途中の state を plan が読むこと。plan と apply は同じ concurrency グループで 1 本ずつ動かす予定なので小さい
+- 読むだけで plan が通るかは、公式文書では確かめられなかった。最初の plan で確かめる
+
+出典:
+
+- ロックのファイルは `<prefix>/<workspace>.tflock`。ロックを取るときに新しいファイルを書く（[backend_state.go](https://github.com/hashicorp/terraform/blob/ae75cbe434a7/internal/backend/remote-state/gcs/backend_state.go) の 25 行目・165〜166 行目、同じフォルダの `client.go` の 96〜118 行目）。公式文書にはファイル名の記載を見つけられなかった
+- `-lock` の既定は true（[extended.go](https://github.com/hashicorp/terraform/blob/ae75cbe434a7/internal/command/arguments/extended.go) の 270 行目）。`-lock=false` の説明は [terraform plan](https://developer.hashicorp.com/terraform/cli/commands/plan)
+- 公式の [gcs バックエンドのページ](https://developer.hashicorp.com/terraform/language/backend/gcs)は "Storage Object Admin" を求める。ロックを取る使い方が前提と読める
+- `roles/storage.objectViewer` は `storage.objects.get` と `storage.objects.list` を含む（`gcloud iam roles describe roles/storage.objectViewer` で 2026-10-27 に確認）
 
 ---
 

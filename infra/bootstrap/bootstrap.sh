@@ -76,8 +76,7 @@ for name in "${REQUIRED_VARS[@]}"; do
 done
 if [ "${#missing[@]}" -gt 0 ]; then
   printf 'エラー: 次の環境変数が見つかりません（環境にも .env.local にもありません）。\n' >&2
-  printf '  %s\n' "${REQUIRED_VARS[@]}" >&2
-  printf '見つからなかったもの: %s\n' "${missing[*]}" >&2
+  printf '  %s\n' "${missing[@]}" >&2
   exit 1
 fi
 
@@ -100,15 +99,22 @@ PRINCIPAL_BASE="principalSet://iam.googleapis.com/${POOL_PATH}"
 #    iam・cloudresourcemanager: このスクリプトが SA・プール・プロジェクトの権限を扱うために要る。
 #    storage: バケットを作るために要る。
 # ---------------------------------------------------------------------
-for api in iam.googleapis.com cloudresourcemanager.googleapis.com iamcredentials.googleapis.com sts.googleapis.com storage.googleapis.com; do
-  if [ -n "$(gcloud services list --enabled --project "$GCP_PROJECT_ID" \
-        --filter="config.name=$api" --format='value(config.name)')" ]; then
+apis=(iam.googleapis.com cloudresourcemanager.googleapis.com iamcredentials.googleapis.com sts.googleapis.com storage.googleapis.com)
+enabled_apis="$(gcloud services list --enabled --project "$GCP_PROJECT_ID" --format='value(config.name)')"
+to_enable=()
+for api in "${apis[@]}"; do
+  if grep -qx "$api" <<<"$enabled_apis"; then
     say "そのまま" "API $api は有効"
   else
-    gcloud services enable "$api" --project "$GCP_PROJECT_ID"
-    say "更新した" "API $api を有効にした"
+    to_enable+=("$api")
   fi
 done
+if [ "${#to_enable[@]}" -gt 0 ]; then
+  gcloud services enable "${to_enable[@]}" --project "$GCP_PROJECT_ID"
+  for api in "${to_enable[@]}"; do
+    say "更新した" "API $api を有効にした"
+  done
+fi
 
 # ---------------------------------------------------------------------
 # 4. バケット
@@ -127,23 +133,22 @@ bucket_state() {
 
 # ensure_bucket <名前> <versioning: yes|no> <lifecycle: yes|no>
 ensure_bucket() {
-  local bucket="$1" versioning="$2" lifecycle="$3" created=no before after location
-  if ! gcloud storage buckets describe "gs://$bucket" --format='value(name)' >/dev/null 2>&1; then
+  local bucket="$1" versioning="$2" lifecycle="$3" created=no before after location owner_number
+  # 存在の確認と、バケットがあるプロジェクトの番号の取得を 1 回で行う
+  if ! owner_number="$(gcloud storage buckets describe "gs://$bucket" --raw --format='value(projectNumber)' 2>/dev/null)"; then
     gcloud storage buckets create "gs://$bucket" --project "$GCP_PROJECT_ID" \
       --location "$REGION" --uniform-bucket-level-access --public-access-prevention
     created=yes
   else
-    local owner_number
-    owner_number="$(gcloud storage buckets describe "gs://$bucket" --raw --format='value(projectNumber)')"
     if [ "$owner_number" != "$PROJECT_NUMBER" ]; then
       die "バケット $bucket は、対象のプロジェクト（番号 $PROJECT_NUMBER）ではなく、別のプロジェクト（番号 $owner_number）にあります。名前を変えてください。"
     fi
   fi
-  location="$(gcloud storage buckets describe "gs://$bucket" --format='value(location)')"
+  before="$(bucket_state "$bucket")"
+  location="${before%%$'\t'*}"  # bucket_state の最初の項目が場所
   if [ "$(printf '%s' "$location" | tr '[:upper:]' '[:lower:]')" != "$REGION" ]; then
     say "注意" "バケット $bucket の場所は $location です（$REGION ではありません）。場所は後から変えられないので、そのままにします。"
   fi
-  before="$(bucket_state "$bucket")"
   local args=(--uniform-bucket-level-access --public-access-prevention)
   if [ "$versioning" = yes ]; then args+=(--versioning); else args+=(--no-versioning); fi
   if [ "$lifecycle" = yes ]; then args+=(--lifecycle-file "$LIFECYCLE_FILE"); fi
@@ -169,12 +174,19 @@ ISSUER_URI="https://token.actions.githubusercontent.com"
 ATTRIBUTE_MAPPING="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.ref=assertion.ref"
 ATTRIBUTE_CONDITION="assertion.repository == '${GITHUB_REPO}'"
 
+# 削除済みや無効のプールとプロバイダは、トークンの交換ができない。引数は "状態,無効か" の 1 行
+wif_unusable() {
+  local state="${1%%,*}" disabled="${1#*,}"
+  [ "$state" = DELETED ] && return 0
+  case "$disabled" in True|true) return 0 ;; esac
+  return 1
+}
+
 if pool_status="$(gcloud iam workload-identity-pools describe "$POOL_ID" --project "$GCP_PROJECT_ID" \
-     --location global --format='value(state,disabled)' 2>/dev/null)"; then
-  case "$pool_status" in
-    *DELETED*|*True*)
-      die "WIF プール $POOL_ID は削除済みか無効です（状態: $pool_status）。Cloud Console か gcloud で復旧するか、別の名前にしてください。自動では直しません。" ;;
-  esac
+     --location global --format='csv[no-heading](state,disabled)' 2>/dev/null)"; then
+  if wif_unusable "$pool_status"; then
+    die "WIF プール $POOL_ID は削除済みか無効です（状態: $pool_status）。Cloud Console か gcloud で復旧するか、別の名前にしてください。自動では直しません。"
+  fi
   say "そのまま" "WIF プール $POOL_ID"
 else
   gcloud iam workload-identity-pools create "$POOL_ID" --project "$GCP_PROJECT_ID" \
@@ -188,23 +200,23 @@ provider_args=(
   --attribute-mapping "$ATTRIBUTE_MAPPING"
   --attribute-condition "$ATTRIBUTE_CONDITION"
 )
-if provider_json="$(gcloud iam workload-identity-pools providers describe "$PROVIDER_ID" \
-     --project "$GCP_PROJECT_ID" --location global --workload-identity-pool "$POOL_ID" \
-     --format=json 2>/dev/null)"; then
-  # 削除済みや無効のプロバイダは、トークンの交換ができない。自動では直さず止める
-  if [[ "$provider_json" == *'"state": "DELETED"'* || "$provider_json" == *'"disabled": true'* ]]; then
+provider_describe() {
+  gcloud iam workload-identity-pools providers describe "$PROVIDER_ID" \
+    --project "$GCP_PROJECT_ID" --location global --workload-identity-pool "$POOL_ID" "$@"
+}
+if provider_status="$(provider_describe --format='csv[no-heading](state,disabled)' 2>/dev/null)"; then
+  if wif_unusable "$provider_status"; then
     die "WIF プロバイダ $PROVIDER_ID は削除済みか無効です。Cloud Console か gcloud で復旧するか、別の名前にしてください。自動では直しません。"
   fi
-  # 属性の対応表・条件・発行元が望む形か確かめる。違えば更新する
-  if [[ "$provider_json" == *"\"attributeCondition\": \"${ATTRIBUTE_CONDITION}\""* \
-     && "$provider_json" == *'"google.subject": "assertion.sub"'* \
-     && "$provider_json" == *'"attribute.repository": "assertion.repository"'* \
-     && "$provider_json" == *'"attribute.ref": "assertion.ref"'* \
-     && "$provider_json" == *"\"issuerUri\": \"${ISSUER_URI}\""* ]]; then
-    say "そのまま" "WIF プロバイダ $PROVIDER_ID"
-  else
-    gcloud iam workload-identity-pools providers update-oidc "$PROVIDER_ID" "${provider_args[@]}" >/dev/null
+  # 毎回 update して望む形にそろえる。前後の状態が違えば「更新した」と出す
+  provider_format='value(attributeCondition,attributeMapping,oidc.issuerUri)'
+  before="$(provider_describe --format="$provider_format")"
+  gcloud iam workload-identity-pools providers update-oidc "$PROVIDER_ID" "${provider_args[@]}" >/dev/null
+  after="$(provider_describe --format="$provider_format")"
+  if [ "$before" != "$after" ]; then
     say "更新した" "WIF プロバイダ $PROVIDER_ID の属性と条件"
+  else
+    say "そのまま" "WIF プロバイダ $PROVIDER_ID"
   fi
 else
   gcloud iam workload-identity-pools providers create-oidc "$PROVIDER_ID" "${provider_args[@]}" \
@@ -274,7 +286,7 @@ bind_role() {
     else
       err="$(cat "$ERR_FILE")"
     fi
-    sleep 5
+    if [ "$i" -lt 5 ]; then sleep 5; fi
   done
   printf '%s\n' "$err" >&2
   die "$kind $target に $role を付けられませんでした（上が gcloud のエラー）。"
@@ -309,16 +321,14 @@ set_secret() {
   say "登録した" "Secret $name（出どころ: $source）"
 }
 
-set_secret GCP_PROJECT_ID "$GCP_PROJECT_ID" "環境変数 GCP_PROJECT_ID"
+# 組み立てた値
 set_secret GCP_WIF_PROVIDER "$PROVIDER_PATH" "プロジェクト番号から組み立てた WIF プロバイダの名前"
 set_secret TF_PLAN_SA "$PLAN_SA" "SA ${PLAN_SA_NAME} のメールアドレス"
 set_secret TF_APPLY_SA "$APPLY_SA" "SA ${APPLY_SA_NAME} のメールアドレス"
-set_secret TF_STATE_BUCKET "$TF_STATE_BUCKET" "環境変数 TF_STATE_BUCKET"
-set_secret LOG_BUCKET "$LOG_BUCKET" "環境変数 LOG_BUCKET"
-set_secret APP_SA_EMAIL "$APP_SA_EMAIL" "環境変数 APP_SA_EMAIL"
-set_secret VERCEL_TEAM_SLUG "$VERCEL_TEAM_SLUG" "環境変数 VERCEL_TEAM_SLUG"
-set_secret VERCEL_PROD_PROJECT "$VERCEL_PROD_PROJECT" "環境変数 VERCEL_PROD_PROJECT"
-set_secret VERCEL_DEMO_PROJECT "$VERCEL_DEMO_PROJECT" "環境変数 VERCEL_DEMO_PROJECT"
-set_secret OWNER_EMAIL "$OWNER_EMAIL" "環境変数 OWNER_EMAIL"
+# 環境変数の値をそのまま登録するもの
+for name in GCP_PROJECT_ID TF_STATE_BUCKET LOG_BUCKET APP_SA_EMAIL \
+    VERCEL_TEAM_SLUG VERCEL_PROD_PROJECT VERCEL_DEMO_PROJECT OWNER_EMAIL; do
+  set_secret "$name" "${!name}" "環境変数 $name"
+done
 
 echo "完了しました。"

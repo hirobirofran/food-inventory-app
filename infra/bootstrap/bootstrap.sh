@@ -259,17 +259,19 @@ ensure_sa "$APPLY_SA_NAME" "$APPLY_SA" "Terraform apply"
 get_bound() {
   local kind="$1" target="$2" member="$3" role="$4"
   # gcloud の --filter は大文字と小文字を区別しないため、ロールで絞ったメンバーの一覧を取り、
-  # 大文字と小文字を区別した完全一致（grep -Fx）で比べる
-  local filter="bindings.role=\"$role\"" members
+  # 大文字と小文字を区別した完全一致（grep -Fx）で比べる。
+  # 条件付きの付与（期限付きなど）は、このスクリプトが付ける条件なしの付与とは別物なので数えない。
+  # 2 列目（条件）が空の行だけを残す
+  local filter="bindings.role=\"$role\"" format='value(bindings.members,bindings.condition)' rows
   case "$kind" in
-    project) members="$(gcloud projects get-iam-policy "$target" --flatten='bindings[].members' \
-               --filter="$filter" --format='value(bindings.members)')" || return 1 ;;
-    sa)      members="$(gcloud iam service-accounts get-iam-policy "$target" --project "$GCP_PROJECT_ID" \
-               --flatten='bindings[].members' --filter="$filter" --format='value(bindings.members)')" || return 1 ;;
-    bucket)  members="$(gcloud storage buckets get-iam-policy "gs://$target" --flatten='bindings[].members' \
-               --filter="$filter" --format='value(bindings.members)')" || return 1 ;;
+    project) rows="$(gcloud projects get-iam-policy "$target" --flatten='bindings[].members' \
+               --filter="$filter" --format="$format")" || return 1 ;;
+    sa)      rows="$(gcloud iam service-accounts get-iam-policy "$target" --project "$GCP_PROJECT_ID" \
+               --flatten='bindings[].members' --filter="$filter" --format="$format")" || return 1 ;;
+    bucket)  rows="$(gcloud storage buckets get-iam-policy "gs://$target" --flatten='bindings[].members' \
+               --filter="$filter" --format="$format")" || return 1 ;;
   esac
-  if grep -Fxq -- "$member" <<<"$members"; then printf '%s\n' "$role"; fi
+  if awk -F'\t' '$2 == "" { print $1 }' <<<"$rows" | grep -Fxq -- "$member"; then printf '%s\n' "$role"; fi
   return 0
 }
 

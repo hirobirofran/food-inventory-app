@@ -314,7 +314,7 @@ GCP の設定を Terraform で管理し、GitHub Actions から動かすため�
 
 スクリプトが作る物（無ければ作り、あれば、このスクリプトが決めた設定に直す）:
 
-- API の有効化（`iamcredentials`、`sts`。ほかに、スクリプト自身が使う `iam` と `cloudresourcemanager`）
+- API の有効化（`iamcredentials`、`sts`。ほかに、スクリプト自身が使う `iam`、`cloudresourcemanager`、`storage`）
 - state を置くバケット（バージョニングあり、公開を防ぐ設定）
 - Actions のログを置くバケット（30 日で自動削除、公開を防ぐ設定）。state のバケットとは別にする。plan はどのブランチからも動くので、同じバケットだとログを書く権限が state にも届くため
 - GitHub 用の WIF のプールとプロバイダ（名前はどちらも `github`）。このリポジトリのトークンだけを通す

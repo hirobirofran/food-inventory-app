@@ -39,6 +39,9 @@ die() { printf 'エラー: %s\n' "$*" >&2; exit 1; }
 # ---------------------------------------------------------------------
 command -v gcloud >/dev/null 2>&1 || die "gcloud が見つかりません。Google Cloud CLI を入れてください。"
 command -v gh >/dev/null 2>&1 || die "gh（GitHub CLI）が見つかりません。"
+# Git Bash の gcloud は出力の行末に \r（復帰文字）を付けることがあり、値の比較がずれる。
+# 標準出力から \r を落とすラッパーに差し替える（標準エラーは変えない。pipefail で gcloud の失敗は伝わる）
+gcloud() { command gcloud "$@" | tr -d '\r'; }
 acct="$(gcloud auth list --filter=status:ACTIVE --format='value(account)')" \
   || die "gcloud を実行できませんでした（上のエラーを見てください）。"
 [ -n "$acct" ] || die "gcloud にログインしていません。'gcloud auth login' を実行してください。"
@@ -52,13 +55,19 @@ gh auth status >/dev/null 2>&1 || die "gh にログインしていません。'g
 read_from_env_file() {
   local name="$1" line value
   [ -f "$ENV_FILE" ] || return 0
-  line="$(grep -m1 "^${name}=" "$ENV_FILE" || true)"
+  # 行頭に "export " があっても読む
+  line="$(grep -m1 -E "^(export[[:space:]]+)?${name}=" "$ENV_FILE" || true)"
   [ -n "$line" ] || return 0
   value="${line#*=}"
   value="${value%$'\r'}"
   case "$value" in
     \"*\") value="${value#\"}"; value="${value%\"}" ;;
     \'*\') value="${value#\'}"; value="${value%\'}" ;;
+    *)
+      # 引用符で囲んでいない値は、" #" 以降のコメントと末尾の空白を落とす
+      value="${value%%[[:space:]]#*}"
+      value="${value%"${value##*[![:space:]]}"}"
+      ;;
   esac
   printf '%s' "$value"
 }
@@ -151,7 +160,8 @@ ensure_bucket() {
   fi
   local args=(--uniform-bucket-level-access --public-access-prevention)
   if [ "$versioning" = yes ]; then args+=(--versioning); else args+=(--no-versioning); fi
-  if [ "$lifecycle" = yes ]; then args+=(--lifecycle-file "$LIFECYCLE_FILE"); fi
+  # ライフサイクルが要らないバケットに既存の設定があれば消す（設定が違えば直す方針）
+  if [ "$lifecycle" = yes ]; then args+=(--lifecycle-file "$LIFECYCLE_FILE"); else args+=(--clear-lifecycle); fi
   gcloud storage buckets update "gs://$bucket" "${args[@]}" >/dev/null
   after="$(bucket_state "$bucket")"
   if [ "$created" = yes ]; then
@@ -162,6 +172,9 @@ ensure_bucket() {
     say "そのまま" "バケット $bucket"
   fi
 }
+
+[ "$TF_STATE_BUCKET" != "$LOG_BUCKET" ] \
+  || die "TF_STATE_BUCKET と LOG_BUCKET が同じ名前です。state 用とログ用は別のバケットにしてください（ログ用だけ 30 日で自動削除するため）。"
 
 ensure_bucket "$TF_STATE_BUCKET" yes no
 ensure_bucket "$LOG_BUCKET" no yes
@@ -245,15 +258,19 @@ ensure_sa "$APPLY_SA_NAME" "$APPLY_SA" "Terraform apply"
 # get_bound <project|sa|bucket> <対象> <メンバー> <ロール>  ... 付いていれば、そのロールを出す
 get_bound() {
   local kind="$1" target="$2" member="$3" role="$4"
-  local filter="bindings.role=\"$role\" AND bindings.members=\"$member\""
+  # gcloud の --filter は大文字と小文字を区別しないため、ロールで絞ったメンバーの一覧を取り、
+  # 大文字と小文字を区別した完全一致（grep -Fx）で比べる
+  local filter="bindings.role=\"$role\"" members
   case "$kind" in
-    project) gcloud projects get-iam-policy "$target" --flatten='bindings[].members' \
-               --filter="$filter" --format='value(bindings.role)' ;;
-    sa)      gcloud iam service-accounts get-iam-policy "$target" --project "$GCP_PROJECT_ID" \
-               --flatten='bindings[].members' --filter="$filter" --format='value(bindings.role)' ;;
-    bucket)  gcloud storage buckets get-iam-policy "gs://$target" --flatten='bindings[].members' \
-               --filter="$filter" --format='value(bindings.role)' ;;
+    project) members="$(gcloud projects get-iam-policy "$target" --flatten='bindings[].members' \
+               --filter="$filter" --format='value(bindings.members)')" || return 1 ;;
+    sa)      members="$(gcloud iam service-accounts get-iam-policy "$target" --project "$GCP_PROJECT_ID" \
+               --flatten='bindings[].members' --filter="$filter" --format='value(bindings.members)')" || return 1 ;;
+    bucket)  members="$(gcloud storage buckets get-iam-policy "gs://$target" --flatten='bindings[].members' \
+               --filter="$filter" --format='value(bindings.members)')" || return 1 ;;
   esac
+  if grep -Fxq -- "$member" <<<"$members"; then printf '%s\n' "$role"; fi
+  return 0
 }
 
 # run_bind <project|sa|bucket> <対象> <メンバー> <ロール>  ... 付与を 1 回試す
@@ -269,11 +286,16 @@ run_bind() {
   esac
 }
 
+# 作った直後のサービスアカウントは、60 秒以上たたないと権限の操作に使えないことがある（Google の文書）。
+# そのため 12 回 × 10 秒（最後の試行の後は待たない）で、合計 約 2 分待つ。
+BIND_ATTEMPTS=12
+BIND_WAIT_SECONDS=10
+
 # bind_role <project|sa|bucket> <対象> <メンバー> <ロール>
 # 確認も付与も、作った直後は見えないことがあるので数回やり直す。最後に失敗したら gcloud のエラーを出す
 bind_role() {
   local kind="$1" target="$2" member="$3" role="$4" existing i err=""
-  for i in 1 2 3 4 5; do
+  for ((i = 1; i <= BIND_ATTEMPTS; i++)); do
     if existing="$(get_bound "$kind" "$target" "$member" "$role" 2>"$ERR_FILE")"; then
       if [ -n "$existing" ]; then
         say "そのまま" "$kind $target: $role"
@@ -286,7 +308,7 @@ bind_role() {
     else
       err="$(cat "$ERR_FILE")"
     fi
-    if [ "$i" -lt 5 ]; then sleep 5; fi
+    if [ "$i" -lt "$BIND_ATTEMPTS" ]; then sleep "$BIND_WAIT_SECONDS"; fi
   done
   printf '%s\n' "$err" >&2
   die "$kind $target に $role を付けられませんでした（上が gcloud のエラー）。"

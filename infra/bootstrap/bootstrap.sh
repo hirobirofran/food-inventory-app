@@ -8,6 +8,7 @@
 #   - Actions のログを置くバケット（30 日で自動削除）
 #   - GitHub 用の Workload Identity Federation（WIF）のプールとプロバイダ
 #   - plan 用と apply 用のサービスアカウント（SA）と、その権限
+#   - GitHub の Environment（apply のジョブを、承認されるまで止める。承認できるのは実行した人だけ）
 #   - GitHub Secrets（gh secret set。値は画面に出さない）
 #
 # 手順と前提は docs/SETUP.md の 6 章。実際の識別子（プロジェクト ID など）は
@@ -24,6 +25,8 @@ POOL_ID="github"
 PROVIDER_ID="github"
 PLAN_SA_NAME="tf-plan"
 APPLY_SA_NAME="tf-apply"
+# apply のジョブが通る GitHub の Environment の名前。ワークフローの environment: にも同じ名前を書く
+APPLY_ENV="terraform-apply"
 LOG_RETENTION_DAYS=30
 
 REQUIRED_VARS=(
@@ -101,6 +104,14 @@ APPLY_SA="${APPLY_SA_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
 POOL_PATH="projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL_ID}"
 PROVIDER_PATH="${POOL_PATH}/providers/${PROVIDER_ID}"
 PRINCIPAL_BASE="principalSet://iam.googleapis.com/${POOL_PATH}"
+
+# Environment を参照したジョブの OIDC トークンでは、sub が "repo:<オーナー>/<リポジトリ名>:environment:<名前>" になる
+# （GitHub の文書）。google.subject=assertion.sub なので、この値の 1 人だけに apply 用 SA を貸す
+APPLY_SUBJECT="repo:${GITHUB_REPO}:environment:${APPLY_ENV}"
+# google.subject は 127 文字まで（Google の文書）。超えるとトークンを交換できない
+[ "${#APPLY_SUBJECT}" -le 127 ] \
+  || die "GITHUB_REPO が長すぎて、apply のジョブの sub（${#APPLY_SUBJECT} 文字）が google.subject の上限 127 文字を超えます。"
+APPLY_PRINCIPAL="principal://iam.googleapis.com/${POOL_PATH}/subject/${APPLY_SUBJECT}"
 
 # ---------------------------------------------------------------------
 # 3. API の有効化
@@ -318,7 +329,17 @@ bind_role() {
 
 # SA を借りる許可
 bind_role sa "$PLAN_SA" "${PRINCIPAL_BASE}/attribute.repository/${GITHUB_REPO}" roles/iam.workloadIdentityUser
-bind_role sa "$APPLY_SA" "${PRINCIPAL_BASE}/attribute.ref/refs/heads/main" roles/iam.workloadIdentityUser
+bind_role sa "$APPLY_SA" "$APPLY_PRINCIPAL" roles/iam.workloadIdentityUser
+
+# 前の版が付けた「main のジョブなら apply 用 SA を借りられる」許可を外す。
+# 残すと、承認を通らない main のジョブも借りられてしまい、Environment で絞った意味が無くなる
+OLD_APPLY_MEMBER="${PRINCIPAL_BASE}/attribute.ref/refs/heads/main"
+old_bound="$(get_bound sa "$APPLY_SA" "$OLD_APPLY_MEMBER" roles/iam.workloadIdentityUser)"
+if [ -n "$old_bound" ]; then
+  gcloud iam service-accounts remove-iam-policy-binding "$APPLY_SA" --project "$GCP_PROJECT_ID" \
+    --member "$OLD_APPLY_MEMBER" --role roles/iam.workloadIdentityUser --quiet >/dev/null
+  say "外した" "sa $APPLY_SA: main のジョブに貸す roles/iam.workloadIdentityUser"
+fi
 
 # state のバケット: plan は読むだけ、apply は読み書き
 bind_role bucket "$TF_STATE_BUCKET" "serviceAccount:${PLAN_SA}" roles/storage.objectViewer
@@ -335,7 +356,62 @@ bind_role project "$GCP_PROJECT_ID" "serviceAccount:${APPLY_SA}" roles/iam.workl
 bind_role project "$GCP_PROJECT_ID" "serviceAccount:${APPLY_SA}" roles/iam.serviceAccountAdmin
 
 # ---------------------------------------------------------------------
-# 8. GitHub Secrets
+# 8. GitHub の Environment
+#    apply のジョブはこの Environment を通る。ジョブは承認されるまで止まり、承認できるのは
+#    このスクリプトを実行している gh のログインユーザーだけ。main 以外のブランチのジョブは通れない。
+#    毎回 PUT して望む形にそろえる（承認できる人を画面で変えていても、実行した人に戻る）。
+# ---------------------------------------------------------------------
+ENV_API="repos/${GITHUB_REPO}/environments/${APPLY_ENV}"
+POLICY_API="${ENV_API}/deployment-branch-policies"
+
+# 承認できる人。ユーザーの番号は API に渡すだけで、画面には出さない
+user_line="$(gh api user -q '"\(.id) \(.login)"' | tr -d '\r')"
+reviewer_id="${user_line%% *}"
+reviewer_login="${user_line#* }"
+[[ "$reviewer_id" =~ ^[0-9]+$ ]] || die "gh のログインユーザーを取得できませんでした。"
+
+# 比べるための状態（デプロイ元の決め方、self-review を防ぐか、承認できる人の番号）。画面には出さない
+env_state() {
+  gh api "$ENV_API" -q '[.deployment_branch_policy,
+    [.protection_rules[]? | select(.type == "required_reviewers") | .prevent_self_review, [.reviewers[]?.reviewer.id]]]
+    | tostring' 2>/dev/null | tr -d '\r'
+}
+env_existed=yes
+before="$(env_state)" || env_existed=no
+# prevent_self_review は false にする。true だと、承認できる人が 1 人だけのとき、
+# その人が動かしたジョブ（マージで動く apply）を誰も承認できなくなる
+printf '{"reviewers":[{"type":"User","id":%s}],"prevent_self_review":false,"deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}' \
+  "$reviewer_id" | gh api -X PUT "$ENV_API" --input - >/dev/null
+after="$(env_state)"
+if [ "$env_existed" = no ]; then
+  say "作った" "Environment $APPLY_ENV（承認できる人: $reviewer_login）"
+elif [ "$before" != "$after" ]; then
+  say "更新した" "Environment $APPLY_ENV の設定（承認できる人: $reviewer_login）"
+else
+  say "そのまま" "Environment $APPLY_ENV（承認できる人: $reviewer_login）"
+fi
+
+# デプロイ元の規則: main ブランチの 1 つだけにする。ほかの規則があれば消す
+policies="$(gh api --paginate "$POLICY_API" -q '.branch_policies[] | "\(.id)\t\(.type)\t\(.name)"' | tr -d '\r')"
+has_main=no
+while IFS=$'\t' read -r policy_id policy_type policy_name; do
+  [ -n "$policy_id" ] || continue
+  if [ "$policy_type" = branch ] && [ "$policy_name" = main ] && [ "$has_main" = no ]; then
+    has_main=yes
+  else
+    gh api -X DELETE "${POLICY_API}/${policy_id}" >/dev/null
+    say "外した" "Environment $APPLY_ENV のデプロイ元の規則（$policy_type $policy_name）"
+  fi
+done <<<"$policies"
+if [ "$has_main" = yes ]; then
+  say "そのまま" "Environment $APPLY_ENV のデプロイ元の規則（main ブランチだけ）"
+else
+  gh api -X POST "$POLICY_API" -f name=main -f type=branch >/dev/null
+  say "作った" "Environment $APPLY_ENV のデプロイ元の規則（main ブランチだけ）"
+fi
+
+# ---------------------------------------------------------------------
+# 9. GitHub Secrets
 #    値は標準入力で渡す（--body だとプロセスの引数に値が出るため）。画面には名前と出どころだけ出す。
 #    すでにある Secret は上書きされる（同じ値なら変わらない）。
 # ---------------------------------------------------------------------

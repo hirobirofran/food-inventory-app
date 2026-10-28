@@ -310,7 +310,9 @@ npx vitest    # 変更を監視して再実行
 
 GCP の設定を Terraform で管理し、GitHub Actions から動かすための土台を、`infra/bootstrap/bootstrap.sh` で作る。Terraform は state（管理している物の記録）を置く場所が無いと始められず、Actions が鍵を持たずに GCP に入る仕組み（Workload Identity Federation、以下 WIF）も先に要る。そのため、この 2 つは Terraform ではなく gcloud のスクリプトで作る。
 
-用語: SA はサービスアカウント（プログラムが使う Google Cloud のアカウント）。plan は Terraform が変更の予定を出す操作、apply はその変更を実際に反映する操作。seed は、デモのシートにデータを入れ直す `npm run seed:demo` のこと（1 章）。
+用語: SA はサービスアカウント（プログラムが使う Google Cloud のアカウント）。plan は Terraform が変更の予定を出す操作、apply はその変更を実際に反映する操作。seed は、デモのシートにデータを入れ直す `npm run seed:demo` のこと（1 章）。Environment は、GitHub Actions のジョブに通過の条件を付ける GitHub の仕組み。required reviewers は、その条件のうち「決めた人が承認するまでジョブを止める」もの。
+
+apply の流れ: PR を main にマージすると apply のジョブが動き出し、Environment `terraform-apply` の承認待ちで止まる。承認できる人が、Actions の画面でその実行を開き、「Review deployments」から `terraform-apply` を選んで「Approve and deploy」を押すと apply が進む。承認できるのは、このスクリプトを実行した人だけ。ワークフローの apply のジョブには `environment: terraform-apply` と書く（名前が違うと、apply 用 SA を借りられない）。
 
 スクリプトが作る物（無ければ作り、あれば、このスクリプトが決めた設定に直す）:
 
@@ -318,7 +320,8 @@ GCP の設定を Terraform で管理し、GitHub Actions から動かすため�
 - state を置くバケット（バージョニングあり、公開を防ぐ設定）
 - Actions のログを置くバケット（30 日で自動削除、公開を防ぐ設定）。state のバケットとは別にする。plan はどのブランチからも動くので、同じバケットだとログを書く権限が state にも届くため
 - GitHub 用の WIF のプールとプロバイダ（名前はどちらも `github`）。このリポジトリのトークンだけを通す
-- plan 用 SA（`tf-plan`）と apply 用 SA（`tf-apply`）。plan 用はこのリポジトリのどのブランチからでも借りられ、apply 用は `refs/heads/main` からだけ借りられる
+- plan 用 SA（`tf-plan`）と apply 用 SA（`tf-apply`）。plan 用はこのリポジトリのどのブランチからでも借りられ、apply 用は Environment `terraform-apply` を通ったジョブからだけ借りられる。前の版のスクリプトが付けた「main のジョブなら apply 用 SA を借りられる」許可が残っていれば外す
+- GitHub の Environment `terraform-apply`。承認できる人（required reviewers）は、スクリプトを実行した gh のログインユーザー 1 人。main ブランチのジョブだけが通れる。実行した人が自分で承認できるように、self-review（ジョブを動かした人の承認）は禁止しない（禁止すると、承認できる人が 1 人のときに誰も承認できなくなる）
 - GitHub Secrets 11 個（下の表）
 
 ### 6-1. 前提
@@ -326,7 +329,9 @@ GCP の設定を Terraform で管理し、GitHub Actions から動かすため�
 - Git Bash（Windows）または bash（macOS・Linux）で動かす
 - Google Cloud CLI（`gcloud`）と GitHub CLI（`gh`）が入っている
 - `gcloud auth login` が済んでいる。そのアカウントは、対象プロジェクトのオーナー（`roles/owner`）であること
-- `gh auth login` が済んでいる。Secrets を登録できる権限（このリポジトリの管理者）があること
+- `gh auth login` が済んでいる。Secrets と Environment を作れる権限（このリポジトリの管理者）があること
+- apply を承認する人（リポジトリのオーナー）本人の gh のログインで動かす。承認できる人は、実行した人になるため
+- required reviewers は、GitHub の無料プランでは公開リポジトリでだけ使える
 
 ### 6-2. 渡す環境変数
 
@@ -356,9 +361,11 @@ export GITHUB_REPO=<オーナー>/<リポジトリ名>
 bash infra/bootstrap/bootstrap.sh
 ```
 
-1 行ずつ「作った」「更新した」「そのまま」を出し、最後に Secrets を登録する。gcloud のログインの有効期限が切れていると、ブラウザで再ログインを求められることがある。出力にはプロジェクト ID やバケットの名前などの識別子が含まれるので、Issue や PR に貼らない。
+1 行ずつ「作った」「更新した」「外した」「そのまま」を出し、最後に Secrets を登録する。gcloud のログインの有効期限が切れていると、ブラウザで再ログインを求められることがある。出力にはプロジェクト ID やバケットの名前などの識別子が含まれるので、Issue や PR に貼らない。
 
 2 回目以降も動かしてよい。権限が足りないと分かったときは、スクリプトの権限の一覧に足してから動かし直す。
+
+承認できる人を後から変えたいときは、GitHub の Settings → Environments → `terraform-apply` の「Required reviewers」で変える。スクリプトを動かし直すと、承認できる人は実行した人だけに戻る。
 
 ### 6-4. GitHub Secrets の表
 

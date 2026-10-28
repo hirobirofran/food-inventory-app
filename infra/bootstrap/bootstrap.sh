@@ -92,9 +92,22 @@ if [ "${#missing[@]}" -gt 0 ]; then
   exit 1
 fi
 
-# 条件式（CEL）に埋め込むので、想定外の文字を入れさせない
+# SA を借りる相手の名前（sub）に埋め込むので、想定外の文字を入れさせない
 [[ "$GITHUB_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] \
   || die "GITHUB_REPO は '<オーナー>/<リポジトリ名>' の形で渡してください。"
+
+# リポジトリの番号。名前は、消したり改名したりした後に別の人が取り直せるが、番号は使い回されない
+# （Google の文書）。WIF の条件と plan 用 SA の借り手は、名前ではなくこの番号で絞る。
+# 手で写す間違いを無くすため、環境変数では受け取らずに GitHub から取る
+REPO_ID="$(gh api "repos/${GITHUB_REPO}" --jq .id | tr -d '\r')"
+[[ "$REPO_ID" =~ ^[0-9]+$ ]] || die "リポジトリ $GITHUB_REPO の番号を取得できませんでした。"
+
+# apply 用 SA を借りる相手の sub は、GitHub の既定の形（repo:<オーナー>/<リポジトリ名>:...）を前提にしている。
+# 形を変える設定（sub の項目の指定や、番号入りの形）があると借りられなくなるので、ここで止める
+sub_template="$(gh api "repos/${GITHUB_REPO}/actions/oidc/customization/sub" \
+  --jq '"\(.use_default) \(.use_immutable_subject // false)"' | tr -d '\r')"
+[ "$sub_template" = "true false" ] \
+  || die "リポジトリ $GITHUB_REPO の OIDC の sub の形が既定と違います（use_default use_immutable_subject = $sub_template）。docs/SETUP.md の 6 章を見てください。"
 
 PROJECT_NUMBER="$(gcloud projects describe "$GCP_PROJECT_ID" --format='value(projectNumber)')"
 [ -n "$PROJECT_NUMBER" ] || die "プロジェクトの番号を取得できませんでした。"
@@ -192,11 +205,15 @@ ensure_bucket "$LOG_BUCKET" no yes
 
 # ---------------------------------------------------------------------
 # 5. WIF のプールとプロバイダ
-#    GitHub Actions のトークンのうち、このリポジトリのものだけを通す。
+#    GitHub Actions のトークンのうち、このリポジトリ（番号で見分ける）のものだけを通す。
+#    attribute.repository（名前）は、ログなどで読むための値として残す。
 # ---------------------------------------------------------------------
 ISSUER_URI="https://token.actions.githubusercontent.com"
-ATTRIBUTE_MAPPING="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.ref=assertion.ref"
-ATTRIBUTE_CONDITION="assertion.repository == '${GITHUB_REPO}'"
+ATTRIBUTE_MAPPING="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.repository_id=assertion.repository_id,attribute.ref=assertion.ref"
+ATTRIBUTE_CONDITION="assertion.repository_id == '${REPO_ID}'"
+# Cloud Console でどのリポジトリ用か分かるようにする。説明は 256 文字まで（gcloud の文書）
+PROVIDER_DESCRIPTION="GitHub Actions: ${GITHUB_REPO}"
+[ "${#PROVIDER_DESCRIPTION}" -le 256 ] || die "GITHUB_REPO が長すぎて、WIF プロバイダの説明が 256 文字を超えます。"
 
 # 削除済みや無効のプールとプロバイダは、トークンの交換ができない。引数は "状態,無効か" の 1 行
 wif_unusable() {
@@ -223,6 +240,7 @@ provider_args=(
   --issuer-uri "$ISSUER_URI"
   --attribute-mapping "$ATTRIBUTE_MAPPING"
   --attribute-condition "$ATTRIBUTE_CONDITION"
+  --description "$PROVIDER_DESCRIPTION"
 )
 provider_describe() {
   gcloud iam workload-identity-pools providers describe "$PROVIDER_ID" \
@@ -233,12 +251,12 @@ if provider_status="$(provider_describe --format='csv[no-heading](state,disabled
     die "WIF プロバイダ $PROVIDER_ID は削除済みか無効です。Cloud Console か gcloud で復旧するか、別の名前にしてください。自動では直しません。"
   fi
   # 毎回 update して望む形にそろえる。前後の状態が違えば「更新した」と出す
-  provider_format='value(attributeCondition,attributeMapping,oidc.issuerUri)'
+  provider_format='value(attributeCondition,attributeMapping,oidc.issuerUri,description)'
   before="$(provider_describe --format="$provider_format")"
   gcloud iam workload-identity-pools providers update-oidc "$PROVIDER_ID" "${provider_args[@]}" >/dev/null
   after="$(provider_describe --format="$provider_format")"
   if [ "$before" != "$after" ]; then
-    say "更新した" "WIF プロバイダ $PROVIDER_ID の属性と条件"
+    say "更新した" "WIF プロバイダ $PROVIDER_ID の属性・条件・説明"
   else
     say "そのまま" "WIF プロバイダ $PROVIDER_ID"
   fi
@@ -328,18 +346,22 @@ bind_role() {
 }
 
 # SA を借りる許可
-bind_role sa "$PLAN_SA" "${PRINCIPAL_BASE}/attribute.repository/${GITHUB_REPO}" roles/iam.workloadIdentityUser
+bind_role sa "$PLAN_SA" "${PRINCIPAL_BASE}/attribute.repository_id/${REPO_ID}" roles/iam.workloadIdentityUser
 bind_role sa "$APPLY_SA" "$APPLY_PRINCIPAL" roles/iam.workloadIdentityUser
 
-# 前の版が付けた「main のジョブなら apply 用 SA を借りられる」許可を外す。
-# 残すと、承認を通らない main のジョブも借りられてしまい、Environment で絞った意味が無くなる
-OLD_APPLY_MEMBER="${PRINCIPAL_BASE}/attribute.ref/refs/heads/main"
-old_bound="$(get_bound sa "$APPLY_SA" "$OLD_APPLY_MEMBER" roles/iam.workloadIdentityUser)"
-if [ -n "$old_bound" ]; then
-  gcloud iam service-accounts remove-iam-policy-binding "$APPLY_SA" --project "$GCP_PROJECT_ID" \
-    --member "$OLD_APPLY_MEMBER" --role roles/iam.workloadIdentityUser --quiet >/dev/null
-  say "外した" "sa $APPLY_SA: main のジョブに貸す roles/iam.workloadIdentityUser"
-fi
+# unbind_sa_user <SA> <メンバー> <説明>  ... 前の版が付けた、SA を借りる許可が残っていれば外す
+unbind_sa_user() {
+  local sa="$1" member="$2" label="$3" bound
+  bound="$(get_bound sa "$sa" "$member" roles/iam.workloadIdentityUser)"
+  [ -n "$bound" ] || return 0
+  gcloud iam service-accounts remove-iam-policy-binding "$sa" --project "$GCP_PROJECT_ID" \
+    --member "$member" --role roles/iam.workloadIdentityUser --quiet >/dev/null
+  say "外した" "sa $sa: $label に貸す roles/iam.workloadIdentityUser"
+}
+# 名前で絞った plan 用の許可。残すと、同じ名前を取り直した別のリポジトリにも貸せる形が残る
+unbind_sa_user "$PLAN_SA" "${PRINCIPAL_BASE}/attribute.repository/${GITHUB_REPO}" "リポジトリの名前"
+# main のジョブなら apply 用 SA を借りられる許可。残すと、承認を通らない main のジョブも借りられてしまう
+unbind_sa_user "$APPLY_SA" "${PRINCIPAL_BASE}/attribute.ref/refs/heads/main" "main のジョブ"
 
 # state のバケット: plan は読むだけ、apply は読み書き
 bind_role bucket "$TF_STATE_BUCKET" "serviceAccount:${PLAN_SA}" roles/storage.objectViewer

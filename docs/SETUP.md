@@ -319,10 +319,14 @@ apply の流れ: PR を main にマージすると apply のジョブが動き�
 - API の有効化（`iamcredentials`、`sts`。ほかに、スクリプト自身が使う `iam`、`cloudresourcemanager`、`storage`）
 - state を置くバケット（バージョニングあり、公開を防ぐ設定）
 - Actions のログを置くバケット（30 日で自動削除、公開を防ぐ設定）。state のバケットとは別にする。plan はどのブランチからも動くので、同じバケットだとログを書く権限が state にも届くため
-- GitHub 用の WIF のプールとプロバイダ（名前はどちらも `github`）。このリポジトリのトークンだけを通す
-- plan 用 SA（`tf-plan`）と apply 用 SA（`tf-apply`）。plan 用はこのリポジトリのどのブランチからでも借りられ、apply 用は Environment `terraform-apply` を通ったジョブからだけ借りられる。前の版のスクリプトが付けた「main のジョブなら apply 用 SA を借りられる」許可が残っていれば外す
+- GitHub 用の WIF のプールとプロバイダ（名前はどちらも `github`）。このリポジトリのトークンだけを通す。リポジトリは名前ではなく番号（下の「リポジトリの番号で絞る理由」）で見分ける。プロバイダの説明（Cloud Console に出る）には `GitHub Actions: <オーナー>/<リポジトリ名>` を入れる
+- plan 用 SA（`tf-plan`）と apply 用 SA（`tf-apply`）。plan 用はこのリポジトリ（番号で見分ける）のどのブランチからでも借りられ、apply 用は Environment `terraform-apply` を通ったジョブからだけ借りられる。前の版のスクリプトが付けた許可（plan 用の「リポジトリの名前なら借りられる」、apply 用の「main のジョブなら借りられる」）が残っていれば外す
 - GitHub の Environment `terraform-apply`。承認できる人（required reviewers）は、スクリプトを実行した gh のログインユーザー 1 人。main ブランチのジョブだけが通れる。実行した人が自分で承認できるように、self-review（ジョブを動かした人の承認）は禁止しない（禁止すると、承認できる人が 1 人のときに誰も承認できなくなる）
 - GitHub Secrets 11 個（下の表）
+
+リポジトリの番号で絞る理由: リポジトリの名前は、消したり改名したりした後に、別の人が同じ名前で作り直せる。番号は GitHub が付ける値で、使い回されない。スクリプトは番号を GitHub から取るので、渡す値は増えない。Cloud Console のプロバイダの条件（`assertion.repository_id == '<番号>'`）と照らし合わせたいときは、`gh api repos/<オーナー>/<リポジトリ名> --jq .id` で番号を調べる。
+
+スクリプトは、GitHub が Actions に渡すトークンの `sub`（ジョブの出どころを表す値）が既定の形（`repo:<オーナー>/<リポジトリ名>:environment:<名前>` など）であることを前提にしている。リポジトリの設定で形を変えていると（番号入りの形を含む）、apply 用 SA を借りられないので、スクリプトは最初に止まる。
 
 ### 6-1. 前提
 

@@ -1,7 +1,7 @@
 ---
 title: 環境構築手順書
 description: 食材管理アプリを Google Cloud と Vercel で動かすための設定手順と、日々の運用
-updated: 2026-10-25
+updated: 2026-10-31
 ---
 
 # 環境構築手順書
@@ -19,10 +19,13 @@ updated: 2026-10-25
 
 ## 1. 開発環境の準備
 
-手元の環境（ローカル）を使うのは次の 2 つだけ。画面は動かさない。
+手元の環境（ローカル）を使うのは次の 3 つだけ。画面は動かさない。
 
 - コードを直し、push の前にテスト・型チェック・lint（`npm test`・`npx tsc --noEmit`・`npm run lint`。5 章）を通す。同じ 3 つは PR の CI でも走る
-- デモのシートを `npm run seed:demo` で入れ直す。このときだけ `.env.local` を作る（2-6）。`.env.local` に書くのはシート用の 4 つの変数で、ログイン用の値は書かない
+- デモのシートを `npm run seed:demo` で入れ直す。このとき `.env.local` を作り、シート用の 4 つの変数を書く（2-6）
+- Terraform を GitHub Actions から動かすための土台を、初回に 1 回だけ `infra/bootstrap/bootstrap.sh` で作る（6 章）。このスクリプトに渡す変数も `.env.local` に書ける
+
+`.env.local` にログイン用の値は書かない。
 
 次のコマンドで、リポジトリを手元に取ってきて、使うパッケージを入れる。
 
@@ -111,7 +114,7 @@ npm install
 - 最初から Production と Preview の両方にチェックを入れて保存すると、Production 用と Preview 用の 2 行に分かれる（2026-10-25 に確かめた）。値を変えるとき（3-6 など）に 2 行とも直すことになるので、手順 5 と 8 のように 1 行にまとめる
 - Config の値を画面で見るときは、Vercel が本人確認（認証コードかパスキー）を求める
 - 変数は新しいデプロイにしか効かない。反映（Redeploy）は、ログインの変数も入れた後に 3-4 でまとめて行う
-- `.env.local` を作るのは、デモのシートを入れ直す `npm run seed:demo` を使うときだけ。書く変数は `.env.local.example` にある
+- `.env.local` を作るのは、デモのシートを入れ直す `npm run seed:demo` と、6 章のスクリプトを使うときだけ。書く変数は `.env.local.example` にある
 
 ---
 
@@ -303,6 +306,118 @@ npx vitest    # 変更を監視して再実行
 - API ルートのテストは `src/app/api/**/route.test.ts`（Node 環境）。外部 SDK は `vi.mock` で差し替え、参照する `vi.fn()` は `vi.hoisted` で先に作る。時間に依存する処理は `vi.useFakeTimers()` と `vi.advanceTimersByTimeAsync()` で進める。例: `src/app/api/ai/suggest/route.test.ts`
 - 各テスト後の DOM の片付けは `vitest.setup.ts` が行い、`vi.spyOn` のモックは `restoreMocks: true` で自動復元される（`vi.fn()` に与えた実装は戻らないので `beforeEach` で `mockReset()` する）。設定は `vitest.config.mts`
 - CI（`.github/workflows/ci.yml`）は `npm ci` → `npm test` → `npx tsc --noEmit` → `npm run lint` を順に実行する。docs だけの変更では動かない
+
+---
+
+## 6. Terraform 用の WIF とバケットを作る（初回に 1 回）
+
+GCP の設定を Terraform で管理し、GitHub Actions から動かすための土台を、`infra/bootstrap/bootstrap.sh` で作る。Terraform は state（管理している物の記録）を置く場所が無いと始められず、Actions が鍵を持たずに GCP に入る仕組み（Workload Identity Federation、以下 WIF）も先に要る。そのため、この 2 つは Terraform ではなく gcloud のスクリプトで作る。
+
+用語: SA はサービスアカウント（プログラムが使う Google Cloud のアカウント）。plan は Terraform が変更の予定を出す操作、apply はその変更を実際に反映する操作。seed は、デモのシートにデータを入れ直す `npm run seed:demo` のこと（1 章）。Environment は、GitHub Actions のジョブに通過の条件を付ける GitHub の仕組み。required reviewers は、その条件のうち「決めた人が承認するまでジョブを止める」もの。
+
+apply の流れ（ワークフローは [Issue #84](https://github.com/hirobirofran/food-inventory-app/issues/84) で作る。ワークフローができたら、この段落をワークフローの説明に合わせて見直す）: PR を main にマージすると apply のジョブが動き出し、Environment `terraform-apply` の承認待ちで止まる。承認できる人が、Actions の画面でその実行を開き、「Review deployments」から `terraform-apply` を選んで「Approve and deploy」を押すと apply が進む。承認できるのは、このスクリプトを実行した人だけ。ワークフローの apply のジョブには `environment: terraform-apply` と、大文字と小文字も同じに書く（名前が違うと、apply 用 SA を借りられない）。
+
+スクリプトが作る物（無ければ作り、あれば、このスクリプトが決めた設定に直す）:
+
+- API の有効化（`iamcredentials`、`sts`。ほかに、スクリプト自身が使う `iam`、`cloudresourcemanager`、`storage`）
+- state を置くバケット（バージョニング〔上書きや削除の前の版をバケットに残す設定〕あり、公開を防ぐ設定）
+- Actions のログを置くバケット（30 日で自動削除、公開を防ぐ設定）。state のバケットとは別にする。plan はどのブランチからも動くので、同じバケットだとログを書く権限が state にも届くため
+- GitHub 用の WIF のプールとプロバイダ（名前はどちらも `github`）。このリポジトリのトークンだけを通す。リポジトリは名前ではなく番号（下の「リポジトリの番号で絞る理由」）で見分ける。プロバイダの説明（Cloud Console に出る）には `GitHub Actions: <オーナー>/<リポジトリ名>` を入れる
+- plan 用 SA（`tf-plan`）と apply 用 SA（`tf-apply`）。plan 用はこのリポジトリ（番号で見分ける）のどのブランチからでも借りられ、apply 用は Environment `terraform-apply` を通ったジョブからだけ借りられる。どちらの SA も、借りられるのは決めた 1 つの相手だけで、スクリプトはそれ以外の借りる許可（`roles/iam.workloadIdentityUser`）があれば外す
+- Terraform の最初の state（state のバケットの `gcp/default.tfstate`）。無いときだけ、Terraform 自身に作らせ、plan で「変更なし」になることを確かめる（下の 6-5）
+- GitHub の Environment `terraform-apply`。承認できる人（required reviewers）は、スクリプトを実行した gh のログインユーザー 1 人。main ブランチのジョブだけが通れる。実行した人が自分で承認できるように、self-review（ジョブを動かした人の承認）は禁止しない（禁止すると、承認できる人が 1 人のときに誰も承認できなくなる）
+- GitHub Secrets 11 個（下の表）
+
+リポジトリの番号で絞る理由: リポジトリの名前は、消したり改名したりした後に、別の人が同じ名前で作り直せる。番号は GitHub が付ける値で、使い回されない。スクリプトは番号を GitHub から取るので、渡す値は増えない。Cloud Console のプロバイダの条件（`assertion.repository_id == '<番号>'`）と照らし合わせたいときは、`gh api repos/<オーナー>/<リポジトリ名> --jq .id` で番号を調べる。
+
+スクリプトは、GitHub が Actions に渡すトークンの `sub`（ジョブの出どころを表す値。apply のジョブなら `repo:<オーナー>/<リポジトリ名>:environment:terraform-apply`）が既定の形であることを前提にしている。リポジトリの設定で `sub` の形を変えていると、apply 用 SA を借りられないので、スクリプトは最初に止まる。
+
+今の設定は `gh api repos/<オーナー>/<リポジトリ名>/actions/oidc/customization/sub` で見られる。`"use_default":true` と `"use_immutable_subject":false` があれば既定の形。違うときは、まず誰がなぜ変えたかを確かめる（ほかのクラウドとの WIF が、その形を前提にしていることがある）。既定に戻してよければ、GitHub の REST API の文書（リポジトリの OIDC の `sub` の設定を変える API）に従って戻してから、スクリプトを動かし直す。
+
+GCP 側では、トークンの `sub` をそのまま SA を借りる相手の名前（`google.subject`）にしていて、これは 127 文字までに収める必要がある。plan のワークフローを `pull_request` で動かせば `sub` は短い。ブランチへの push で動かすと、`sub` にブランチ名が入るので、長いブランチ名では GCP に入れない。
+
+### 6-1. 前提
+
+- Git Bash（Windows）または bash（macOS・Linux）で動かす
+- Google Cloud CLI（`gcloud`）と GitHub CLI（`gh`）が入っている
+- Docker Desktop が起動している（macOS・Linux では Docker が動いている）。最初の state を作る Terraform は、HashiCorp の公式の Docker イメージ（`hashicorp/terraform`）で動かすので、Terraform をこの PC に入れなくてよい。使う版はスクリプトの中で固定してあり、PC ごとの版の違いが出ない。state がすでにあれば Docker は使わない。初めて動かすときは、Docker Hub からイメージ（数十 MB）を取ってくる。Docker が動いていないと、スクリプトは state を作る所で止まり、Environment と Secrets はまだ作られていない。Docker を起動してから、動かし直せばよい
+- `gcloud auth login` が済んでいる。そのアカウントは、対象プロジェクトのオーナー（`roles/owner`）であること
+- `gh auth login` が済んでいる。Secrets と Environment を作れる権限（このリポジトリの管理者）があること
+- apply を承認する人（リポジトリのオーナー）本人の gh のログインで動かす。承認できる人は、実行した人になるため
+- required reviewers は、GitHub の無料プランでは公開リポジトリでだけ使える。非公開のリポジトリで動かすと、スクリプトは Environment を作る所で、GitHub のエラーを出して止まる（そこまでに作った GCP の物と state は残り、Secrets はまだ登録されていない）
+
+### 6-2. 渡す環境変数
+
+次の 9 個を、環境変数か、リポジトリ直下の `.env.local` の `名前=値` の行で渡す。環境変数があればそれを使い、無いものだけ `.env.local` から読む。足りないものがあると、足りない名前だけを並べて止まる。値はこの文書にもリポジトリにも書かない。
+
+| 名前 | 意味 |
+|---|---|
+| `GCP_PROJECT_ID` | Google Cloud のプロジェクト ID |
+| `GITHUB_REPO` | このリポジトリ（`<オーナー>/<リポジトリ名>`。大文字と小文字も、GitHub の表記どおりに書く。違うと、スクリプトが最初に止まって正しい表記を出す） |
+| `TF_STATE_BUCKET` | state を置くバケットの名前（Cloud Storage 全体で一意。ほかの人がすでに使っている名前は使えない） |
+| `LOG_BUCKET` | Actions のログを置くバケットの名前（同上） |
+| `APP_SA_EMAIL` | アプリが使う今のサービスアカウントのメールアドレス（`GOOGLE_SERVICE_ACCOUNT_EMAIL` と同じ値） |
+| `VERCEL_TEAM_SLUG` | Vercel のチームの slug（ダッシュボードの URL に出る名前） |
+| `VERCEL_PROD_PROJECT` | Vercel の本番プロジェクトの名前 |
+| `VERCEL_DEMO_PROJECT` | Vercel のデモプロジェクトの名前 |
+| `OWNER_EMAIL` | 手元の seed でアプリの SA の権限を借りる人の Google アカウント |
+
+### 6-3. 実行
+
+リポジトリ直下で動かす。`.env.local` を使わず、環境変数で渡す場合の例:
+
+```bash
+# 値は自分の物に置き換える
+export GCP_PROJECT_ID=<GCP_PROJECT_ID>
+export GITHUB_REPO=<オーナー>/<リポジトリ名>
+# 残りの 7 つも同じように export する
+bash infra/bootstrap/bootstrap.sh
+```
+
+1 行ずつ「作った」「更新した」「外した」「そのまま」（最初の state では「確かめた」も）を出し、最後に Secrets を登録する。gcloud のログインの有効期限が切れていると、ブラウザで再ログインを求められることがある。出力にはプロジェクト ID やバケットの名前などの識別子が含まれるので、Issue や PR に貼らない。
+
+2 回目以降も動かしてよい。権限が足りないと分かったときは、スクリプトの権限の一覧に足してから動かし直す。最初の state の確認（plan）で止まったときは、動かし直しても確認は行われない。エラーの出力を読み、state のバケットの `gcp/default.tfstate` を確かめてから動かし直す。
+
+承認できる人を後から変えたいときは、GitHub の Settings → Environments → `terraform-apply` の「Required reviewers」で変える。スクリプトを動かし直すと、承認できる人は実行した人だけに戻る。
+
+### 6-4. GitHub Secrets の表
+
+Secrets には説明を書く欄が無いので、ここに意味と取り出し方を残す。値を入れ直すときは、GitHub の Settings → Secrets and variables → Actions で、その Secret の「Update」を押して新しい値を入れる。値を変えたいときは、環境変数か `.env.local` を直してスクリプトを動かし直してもよい。Variables は使わない（公開リポジトリでは、Variables の値がログで伏せ字にならないため）。
+
+| 名前 | 意味 | 値の取り出し方 |
+|---|---|---|
+| `GCP_PROJECT_ID` | Google Cloud のプロジェクト ID | Cloud Console の上部のプロジェクト選択、または `gcloud projects list` |
+| `GCP_WIF_PROVIDER` | GitHub 用 WIF プロバイダの完全な名前 | `gcloud iam workload-identity-pools providers describe github --project=<GCP_PROJECT_ID> --location=global --workload-identity-pool=github --format='value(name)'` |
+| `TF_PLAN_SA` | plan 用 SA のメールアドレス | `gcloud iam service-accounts list --project=<GCP_PROJECT_ID> --filter='email~^tf-plan@' --format='value(email)'`。Cloud Console の「IAM と管理」→「サービス アカウント」でも見られる |
+| `TF_APPLY_SA` | apply 用 SA のメールアドレス | 上の `tf-plan` を `tf-apply` に変えたもの |
+| `TF_STATE_BUCKET` | state のバケットの名前 | `.env.local` の同じ名前の行。無ければ `gcloud storage buckets list --project=<GCP_PROJECT_ID> --format='value(name,versioning_enabled)'` で、バージョニングが有効（True）のほう。Cloud Console の「Cloud Storage」→「バケット」でも見られる |
+| `LOG_BUCKET` | ログのバケットの名前 | 同じ一覧で、30 日で削除するライフサイクルが付いているほう（`--format='value(name,lifecycle_config)'`） |
+| `APP_SA_EMAIL` | アプリが使う SA のメールアドレス | Vercel の環境変数 `GOOGLE_SERVICE_ACCOUNT_EMAIL` と同じ値。Cloud Console の「IAM と管理」→「サービス アカウント」でも見られる |
+| `VERCEL_TEAM_SLUG` | Vercel のチームの slug | Vercel ダッシュボードのチームの Settings → General の「Team URL」（`vercel.com/` の後ろの部分） |
+| `VERCEL_PROD_PROJECT` | 本番プロジェクトの名前 | Vercel ダッシュボードのプロジェクト一覧 |
+| `VERCEL_DEMO_PROJECT` | デモプロジェクトの名前 | 同上 |
+| `OWNER_EMAIL` | seed で SA の権限を借りる人の Google アカウント | 本人のアカウント（`gcloud auth list`） |
+
+Secrets の使い道: `GCP_PROJECT_ID` から `LOG_BUCKET` までの 6 つは、Terraform のワークフローが GCP に入り、state とログを置くときに使う。`APP_SA_EMAIL` は、今あるアプリの SA を Terraform の管理に取り込むときに使う。残りの 4 つ（`VERCEL_TEAM_SLUG`、`VERCEL_PROD_PROJECT`、`VERCEL_DEMO_PROJECT`、`OWNER_EMAIL`）は、Vercel から GCP への WIF と、手元の seed がアプリの SA の権限を借りる許可を、Terraform で作るときに使う。
+
+### 6-5. 最初の state と、state のロックについて
+
+- Terraform は、state を書き換えるときに、バケットにロックのファイルを作って同時に動かないようにする。plan 用 SA は state を読むだけにしてあるので、Actions の plan はロックを取らない設定（`-lock=false`）で動かす
+- ただし、読むだけの権限では最初の state を作れない。state のファイルが無いと、Terraform は `terraform init` の途中で空の state を書こうとし、そのときロックのファイルも作るため。この動きは `-lock=false` では止まらない
+- そのため、スクリプトは state が無いときだけ、実行した人のログイン（プロジェクトのオーナー）で Terraform 自身に state を作らせ（`terraform init`）、続けて `terraform plan` で「変更なし」になることを確かめる。state のファイルを手で書いて置くことはしない。Terraform への認証は、`gcloud auth print-access-token` で取ったアクセストークンを環境変数で渡す（値は画面にもコマンドの引数にも出さない）
+- state は、state のバケットの中の `gcp/default.tfstate` にできる（Terraform の backend の設定の prefix が `gcp`）。Terraform の設定を書くとき（[Issue #84](https://github.com/hirobirofran/food-inventory-app/issues/84)）は、backend の設定を同じ prefix にする。違うと、別の空の state を見に行く
+- apply の途中の state を plan が読むことはありうる。plan と apply は、同じ concurrency グループ（GitHub Actions で、同じグループの実行を同時に走らせず 1 本ずつ並べる設定）で動かして、これを避ける
+- 読むだけの権限で plan が通ることは、Terraform の公式文書には書かれていない（公式文書は Storage Object Admin を求めている）。Terraform の設定を入れた後の PR で、最初に Actions の plan を動かすときに確かめる。plan が権限の不足で失敗したら、この節を見直す
+
+出典（Terraform のソースは v1.17.0。スクリプトが使う版と同じ）:
+
+- state が無いときの動き: `terraform init` が backend から state を取り出し（[init_run.go](https://github.com/hashicorp/terraform/blob/v1.17.0/internal/command/init_run.go) の 320 行目）、gcs backend は state が無ければロックを取ってから空の state を書く（[backend_state.go](https://github.com/hashicorp/terraform/blob/v1.17.0/internal/backend/remote-state/gcs/backend_state.go) の 113〜156 行目）
+- ロックのファイルは `<prefix>/<workspace>.tflock`。ロックを取るときに新しいファイルを書く（同じ `backend_state.go` の 25 行目・165〜166 行目、同じフォルダの [client.go](https://github.com/hashicorp/terraform/blob/v1.17.0/internal/backend/remote-state/gcs/client.go) の 96〜118 行目）。公式文書にはファイル名の記載を見つけられなかった
+- gcs backend は、アクセストークンを環境変数 `GOOGLE_OAUTH_ACCESS_TOKEN` から読む（[backend.go](https://github.com/hashicorp/terraform/blob/v1.17.0/internal/backend/remote-state/gcs/backend.go) の 109〜110 行目）
+- `-lock` の既定は true（[extended.go](https://github.com/hashicorp/terraform/blob/v1.17.0/internal/command/arguments/extended.go) の 270 行目）。`-lock=false` の説明は [terraform plan](https://developer.hashicorp.com/terraform/cli/commands/plan)
+- Docker のイメージは [Docker Hub の hashicorp/terraform](https://hub.docker.com/r/hashicorp/terraform)。スクリプトは版（`1.17.0`）とダイジェスト（イメージの中身から計算した値）の両方で固定している
+- 公式の [gcs バックエンドのページ](https://developer.hashicorp.com/terraform/language/backend/gcs)は "Storage Object Admin" を求める。ロックを取る使い方が前提と読める
+- `roles/storage.objectViewer` は `storage.objects.get` と `storage.objects.list` を含む（`gcloud iam roles describe roles/storage.objectViewer` で 2026-10-27 に確認）
 
 ---
 

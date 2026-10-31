@@ -107,8 +107,16 @@ fi
 # リポジトリの番号。名前は、消したり改名したりした後に別の人が取り直せるが、番号は使い回されない
 # （Google の文書）。WIF の条件と plan 用 SA の借り手は、名前ではなくこの番号で絞る。
 # 手で写す間違いを無くすため、環境変数では受け取らずに GitHub から取る
-REPO_ID="$(gh api "repos/${GITHUB_REPO}" --jq .id | tr -d '\r')"
+REPO_ID=""
+REPO_FULL_NAME=""
+repo_line="$(gh api "repos/${GITHUB_REPO}" --jq '"\(.id) \(.full_name)"' | tr -d '\r')"
+REPO_ID="${repo_line%% *}"
+REPO_FULL_NAME="${repo_line#* }"
 [[ "$REPO_ID" =~ ^[0-9]+$ ]] || die "リポジトリ $GITHUB_REPO の番号を取得できませんでした。"
+# gh api は大文字と小文字の違いや改名前の名前も受け付けるが、GitHub がトークンの sub に入れるのは正式な名前。
+# 渡された表記のままだと、sub に合わず apply 用 SA を借りられないので、違えばここで止める
+[ "$REPO_FULL_NAME" = "$GITHUB_REPO" ] \
+  || die "GITHUB_REPO（$GITHUB_REPO）が、GitHub 上の名前（$REPO_FULL_NAME）と違います。大文字と小文字や、改名した後の名前に合わせてください。"
 
 # apply 用 SA を借りる相手の sub は、GitHub の既定の形（repo:<オーナー>/<リポジトリ名>:...）を前提にしている。
 # 形を変える設定（sub の項目の指定や、番号入りの形）があると借りられなくなるので、ここで止める
@@ -365,7 +373,7 @@ unbind_sa_user() {
   bound="$(get_bound sa "$sa" "$member" roles/iam.workloadIdentityUser)"
   [ -n "$bound" ] || return 0
   gcloud iam service-accounts remove-iam-policy-binding "$sa" --project "$GCP_PROJECT_ID" \
-    --member "$member" --role roles/iam.workloadIdentityUser --quiet >/dev/null
+    --member "$member" --role roles/iam.workloadIdentityUser --condition=None --quiet >/dev/null
   say "外した" "sa $sa: $label に貸す roles/iam.workloadIdentityUser"
 }
 # 名前で絞った plan 用の許可。残すと、同じ名前を取り直した別のリポジトリにも貸せる形が残る
@@ -412,8 +420,12 @@ tf_docker() {
     "$TF_IMAGE" "$@"
 }
 
-if gcloud storage objects describe "$STATE_OBJECT" >/dev/null 2>&1; then
+if gcloud storage objects describe "$STATE_OBJECT" >/dev/null 2>"$ERR_FILE"; then
   say "そのまま" "state $STATE_OBJECT"
+elif ! grep -qiE '404|not found|No such object|No URLs matched' "$ERR_FILE"; then
+  # 通信の失敗やトークン切れを「無い」と取り違えると、既存の state があるのに空の設定で plan をかけてしまう
+  cat "$ERR_FILE" >&2
+  die "state $STATE_OBJECT があるかを確かめられませんでした（上が gcloud のエラー）。"
 else
   command -v docker >/dev/null 2>&1 \
     || die "docker が見つかりません。最初の state を作るのに要ります。Docker Desktop を入れてください（docs/SETUP.md の 6 章）。"
@@ -444,7 +456,7 @@ HCL
     || plan_rc=$?
   unset tf_token
   [ "$plan_rc" -eq 0 ] \
-    || die "作った state に plan をかけたところ、「変更なし」になりませんでした（終了コード $plan_rc。上が Terraform の出力）。"
+    || die "作った state に plan をかけたところ、「変更なし」になりませんでした（終了コード $plan_rc。上が Terraform の出力）。state はもうあるので、動かし直してもこの確認は行われません。state のバケットの ${TF_STATE_PREFIX}/default.tfstate の中身を確かめてください。"
   say "確かめた" "state $STATE_OBJECT に plan をかけて、変更なし"
 
   rm -rf "$TF_WORK_DIR"
@@ -472,8 +484,16 @@ env_state() {
     [.protection_rules[]? | select(.type == "required_reviewers") | .prevent_self_review, [.reviewers[]?.reviewer.id]]]
     | tostring' 2>/dev/null | tr -d '\r'
 }
+# Environment があるかは HTTP の状態コードで見る。404 のときだけ「無い」。認証や通信のエラーを「無い」と取り違えない
+env_head="$(gh api -i "$ENV_API" 2>&1 || true)"
+env_head="${env_head%%$'\n'*}"
 env_existed=yes
-before="$(env_state)" || env_existed=no
+before=""
+case "$env_head" in
+  *" 200 "*) before="$(env_state)" ;;
+  *" 404 "*) env_existed=no ;;
+  *) die "Environment $APPLY_ENV があるかを確かめられませんでした（応答: $env_head）。gh の認証と通信を確かめてください。" ;;
+esac
 # prevent_self_review は false にする。true だと、承認できる人が 1 人だけのとき、
 # その人が動かしたジョブ（マージで動く apply）を誰も承認できなくなる
 printf '{"reviewers":[{"type":"User","id":%s}],"prevent_self_review":false,"deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}' \

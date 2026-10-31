@@ -312,7 +312,7 @@ GCP の設定を Terraform で管理し、GitHub Actions から動かすため�
 
 用語: SA はサービスアカウント（プログラムが使う Google Cloud のアカウント）。plan は Terraform が変更の予定を出す操作、apply はその変更を実際に反映する操作。seed は、デモのシートにデータを入れ直す `npm run seed:demo` のこと（1 章）。Environment は、GitHub Actions のジョブに通過の条件を付ける GitHub の仕組み。required reviewers は、その条件のうち「決めた人が承認するまでジョブを止める」もの。
 
-apply の流れ: PR を main にマージすると apply のジョブが動き出し、Environment `terraform-apply` の承認待ちで止まる。承認できる人が、Actions の画面でその実行を開き、「Review deployments」から `terraform-apply` を選んで「Approve and deploy」を押すと apply が進む。承認できるのは、このスクリプトを実行した人だけ。ワークフローの apply のジョブには `environment: terraform-apply` と書く（名前が違うと、apply 用 SA を借りられない）。
+apply の流れ（ワークフローは別の Issue #84 で作る。ここではその動きの予定）: PR を main にマージすると apply のジョブが動き出し、Environment `terraform-apply` の承認待ちで止まる。承認できる人が、Actions の画面でその実行を開き、「Review deployments」から `terraform-apply` を選んで「Approve and deploy」を押すと apply が進む。承認できるのは、このスクリプトを実行した人だけ。ワークフローの apply のジョブには `environment: terraform-apply` と、大文字と小文字も同じに書く（名前が違うと、apply 用 SA を借りられない）。
 
 スクリプトが作る物（無ければ作り、あれば、このスクリプトが決めた設定に直す）:
 
@@ -327,17 +327,21 @@ apply の流れ: PR を main にマージすると apply のジョブが動き�
 
 リポジトリの番号で絞る理由: リポジトリの名前は、消したり改名したりした後に、別の人が同じ名前で作り直せる。番号は GitHub が付ける値で、使い回されない。スクリプトは番号を GitHub から取るので、渡す値は増えない。Cloud Console のプロバイダの条件（`assertion.repository_id == '<番号>'`）と照らし合わせたいときは、`gh api repos/<オーナー>/<リポジトリ名> --jq .id` で番号を調べる。
 
-スクリプトは、GitHub が Actions に渡すトークンの `sub`（ジョブの出どころを表す値）が既定の形（`repo:<オーナー>/<リポジトリ名>:environment:<名前>` など）であることを前提にしている。リポジトリの設定で形を変えていると（番号入りの形を含む）、apply 用 SA を借りられないので、スクリプトは最初に止まる。
+スクリプトは、GitHub が Actions に渡すトークンの `sub`（ジョブの出どころを表す値。apply のジョブなら `repo:<オーナー>/<リポジトリ名>:environment:terraform-apply`）が既定の形であることを前提にしている。リポジトリの設定で `sub` の形を変えていると、apply 用 SA を借りられないので、スクリプトは最初に止まる。
+
+今の設定は `gh api repos/<オーナー>/<リポジトリ名>/actions/oidc/customization/sub` で見られる。`"use_default":true` と `"use_immutable_subject":false` があれば既定の形。違うときは、まず誰がなぜ変えたかを確かめる（ほかのクラウドとの WIF が、その形を前提にしていることがある）。既定に戻してよければ、GitHub の REST API の文書（リポジトリの OIDC の `sub` の設定を変える API）に従って戻してから、スクリプトを動かし直す。
+
+GCP 側では、トークンの `sub` をそのまま SA を借りる相手の名前（`google.subject`）にしていて、これは 127 文字までに収める必要がある。plan のワークフローを `pull_request` で動かせば `sub` は短い。ブランチへの push で動かすと、`sub` にブランチ名が入るので、長いブランチ名では GCP に入れない。
 
 ### 6-1. 前提
 
 - Git Bash（Windows）または bash（macOS・Linux）で動かす
 - Google Cloud CLI（`gcloud`）と GitHub CLI（`gh`）が入っている
-- Docker Desktop が起動している（macOS・Linux では Docker が動いている）。最初の state を作る Terraform は、HashiCorp の公式の Docker イメージ（`hashicorp/terraform`）で動かすので、Terraform をこの PC に入れなくてよい。使う版はスクリプトの中で固定してあり、PC ごとの版の違いが出ない。state がすでにあれば Docker は使わない
+- Docker Desktop が起動している（macOS・Linux では Docker が動いている）。最初の state を作る Terraform は、HashiCorp の公式の Docker イメージ（`hashicorp/terraform`）で動かすので、Terraform をこの PC に入れなくてよい。使う版はスクリプトの中で固定してあり、PC ごとの版の違いが出ない。state がすでにあれば Docker は使わない。初めて動かすときは、Docker Hub からイメージ（百数十 MB）を取ってくる。Docker が動いていないと、スクリプトは state を作る所で止まり、Environment と Secrets はまだ作られていない。Docker を起動してから、動かし直せばよい
 - `gcloud auth login` が済んでいる。そのアカウントは、対象プロジェクトのオーナー（`roles/owner`）であること
 - `gh auth login` が済んでいる。Secrets と Environment を作れる権限（このリポジトリの管理者）があること
 - apply を承認する人（リポジトリのオーナー）本人の gh のログインで動かす。承認できる人は、実行した人になるため
-- required reviewers は、GitHub の無料プランでは公開リポジトリでだけ使える
+- required reviewers は、GitHub の無料プランでは公開リポジトリでだけ使える。非公開のリポジトリで動かすと、スクリプトは Environment を作る所で、GitHub のエラーを出して止まる（そこまでに作った GCP の物と state は残り、Secrets はまだ登録されていない）
 
 ### 6-2. 渡す環境変数
 
@@ -346,7 +350,7 @@ apply の流れ: PR を main にマージすると apply のジョブが動き�
 | 名前 | 意味 |
 |---|---|
 | `GCP_PROJECT_ID` | Google Cloud のプロジェクト ID |
-| `GITHUB_REPO` | このリポジトリ（`<オーナー>/<リポジトリ名>`。大文字と小文字は GitHub の URL の表記どおりに書く。違うと、ログインはできても権限を借りられない） |
+| `GITHUB_REPO` | このリポジトリ（`<オーナー>/<リポジトリ名>`。大文字と小文字も、GitHub の表記どおりに書く。違うと、スクリプトが最初に止まって正しい表記を出す） |
 | `TF_STATE_BUCKET` | state を置くバケットの名前（Cloud Storage 全体で一意。ほかの人がすでに使っている名前は使えない） |
 | `LOG_BUCKET` | Actions のログを置くバケットの名前（同上） |
 | `APP_SA_EMAIL` | アプリが使う今のサービスアカウントのメールアドレス（`GOOGLE_SERVICE_ACCOUNT_EMAIL` と同じ値） |

@@ -321,6 +321,7 @@ apply の流れ: PR を main にマージすると apply のジョブが動き�
 - Actions のログを置くバケット（30 日で自動削除、公開を防ぐ設定）。state のバケットとは別にする。plan はどのブランチからも動くので、同じバケットだとログを書く権限が state にも届くため
 - GitHub 用の WIF のプールとプロバイダ（名前はどちらも `github`）。このリポジトリのトークンだけを通す。リポジトリは名前ではなく番号（下の「リポジトリの番号で絞る理由」）で見分ける。プロバイダの説明（Cloud Console に出る）には `GitHub Actions: <オーナー>/<リポジトリ名>` を入れる
 - plan 用 SA（`tf-plan`）と apply 用 SA（`tf-apply`）。plan 用はこのリポジトリ（番号で見分ける）のどのブランチからでも借りられ、apply 用は Environment `terraform-apply` を通ったジョブからだけ借りられる。前の版のスクリプトが付けた許可（plan 用の「リポジトリの名前なら借りられる」、apply 用の「main のジョブなら借りられる」）が残っていれば外す
+- Terraform の最初の state（state のバケットの `gcp/default.tfstate`）。無いときだけ、Terraform 自身に作らせ、plan で「変更なし」になることを確かめる（下の 6-5）
 - GitHub の Environment `terraform-apply`。承認できる人（required reviewers）は、スクリプトを実行した gh のログインユーザー 1 人。main ブランチのジョブだけが通れる。実行した人が自分で承認できるように、self-review（ジョブを動かした人の承認）は禁止しない（禁止すると、承認できる人が 1 人のときに誰も承認できなくなる）
 - GitHub Secrets 11 個（下の表）
 
@@ -332,6 +333,7 @@ apply の流れ: PR を main にマージすると apply のジョブが動き�
 
 - Git Bash（Windows）または bash（macOS・Linux）で動かす
 - Google Cloud CLI（`gcloud`）と GitHub CLI（`gh`）が入っている
+- Docker Desktop が起動している（macOS・Linux では Docker が動いている）。最初の state を作る Terraform は、HashiCorp の公式の Docker イメージ（`hashicorp/terraform`）で動かすので、Terraform をこの PC に入れなくてよい。使う版はスクリプトの中で固定してあり、PC ごとの版の違いが出ない。state がすでにあれば Docker は使わない
 - `gcloud auth login` が済んでいる。そのアカウントは、対象プロジェクトのオーナー（`roles/owner`）であること
 - `gh auth login` が済んでいる。Secrets と Environment を作れる権限（このリポジトリの管理者）があること
 - apply を承認する人（リポジトリのオーナー）本人の gh のログインで動かす。承認できる人は、実行した人になるため
@@ -365,7 +367,7 @@ export GITHUB_REPO=<オーナー>/<リポジトリ名>
 bash infra/bootstrap/bootstrap.sh
 ```
 
-1 行ずつ「作った」「更新した」「外した」「そのまま」を出し、最後に Secrets を登録する。gcloud のログインの有効期限が切れていると、ブラウザで再ログインを求められることがある。出力にはプロジェクト ID やバケットの名前などの識別子が含まれるので、Issue や PR に貼らない。
+1 行ずつ「作った」「更新した」「外した」「そのまま」（最初の state では「確かめた」も）を出し、最後に Secrets を登録する。gcloud のログインの有効期限が切れていると、ブラウザで再ログインを求められることがある。出力にはプロジェクト ID やバケットの名前などの識別子が含まれるので、Issue や PR に貼らない。
 
 2 回目以降も動かしてよい。権限が足りないと分かったときは、スクリプトの権限の一覧に足してから動かし直す。
 
@@ -391,16 +393,22 @@ Secrets には説明を書く欄が無いので、ここに意味と取り出し
 
 Secrets の使い道: `GCP_PROJECT_ID` から `LOG_BUCKET` までの 6 つは、Terraform のワークフローが GCP に入り、state とログを置くときに使う。`APP_SA_EMAIL` は、今あるアプリの SA を Terraform の管理に取り込むときに使う。残りの 4 つ（`VERCEL_TEAM_SLUG`、`VERCEL_PROD_PROJECT`、`VERCEL_DEMO_PROJECT`、`OWNER_EMAIL`）は、Vercel から GCP への WIF と、手元の seed がアプリの SA の権限を借りる許可を、Terraform で作るときに使う。
 
-### 6-5. state のロックについて
+### 6-5. 最初の state と、state のロックについて
 
 - Terraform は、state を書き換えるときに、バケットにロックのファイルを作って同時に動かないようにする。plan 用 SA は state を読むだけにしてあるので、Actions の plan はロックを取らない設定（`-lock=false`）で動かす
-- そのため、apply の途中の state を plan が読むことはありうる。plan と apply は、同じ concurrency グループ（GitHub Actions で、同じグループの実行を同時に走らせず 1 本ずつ並べる設定）で動かして、これを避ける
-- 読むだけの権限で plan が通ることは、Terraform の公式文書には書かれていない（公式文書は Storage Object Admin を求めている）。plan が権限の不足で失敗したら、この節を見直す
+- ただし、読むだけの権限では最初の state を作れない。state のファイルが無いと、Terraform は `terraform init` の途中で空の state を書こうとし、そのときロックのファイルも作るため。この動きは `-lock=false` では止まらない
+- そのため、スクリプトは state が無いときだけ、実行した人のログイン（プロジェクトのオーナー）で Terraform 自身に state を作らせ（`terraform init`）、続けて `terraform plan` で「変更なし」になることを確かめる。state のファイルを手で書いて置くことはしない。Terraform への認証は、`gcloud auth print-access-token` で取ったアクセストークンを環境変数で渡す（値は画面にもコマンドの引数にも出さない）
+- state は、state のバケットの中の `gcp/default.tfstate` にできる（Terraform の backend の設定の prefix が `gcp`）。Terraform の設定を書くとき（#84）は、backend の設定を同じ prefix にする。違うと、別の空の state を見に行く
+- apply の途中の state を plan が読むことはありうる。plan と apply は、同じ concurrency グループ（GitHub Actions で、同じグループの実行を同時に走らせず 1 本ずつ並べる設定）で動かして、これを避ける
+- 読むだけの権限で plan が通ることは、Terraform の公式文書には書かれていない（公式文書は Storage Object Admin を求めている）。Terraform の設定を入れた後の PR で、最初に Actions の plan を動かすときに確かめる。plan が権限の不足で失敗したら、この節を見直す
 
-出典:
+出典（Terraform のソースは v1.17.0。スクリプトが使う版と同じ）:
 
-- ロックのファイルは `<prefix>/<workspace>.tflock`。ロックを取るときに新しいファイルを書く（[backend_state.go](https://github.com/hashicorp/terraform/blob/ae75cbe434a7/internal/backend/remote-state/gcs/backend_state.go) の 25 行目・165〜166 行目、同じフォルダの `client.go` の 96〜118 行目）。公式文書にはファイル名の記載を見つけられなかった
-- `-lock` の既定は true（[extended.go](https://github.com/hashicorp/terraform/blob/ae75cbe434a7/internal/command/arguments/extended.go) の 270 行目）。`-lock=false` の説明は [terraform plan](https://developer.hashicorp.com/terraform/cli/commands/plan)
+- state が無いときの動き: `terraform init` が backend から state を取り出し（[init_run.go](https://github.com/hashicorp/terraform/blob/v1.17.0/internal/command/init_run.go) の 320 行目）、gcs backend は state が無ければロックを取ってから空の state を書く（[backend_state.go](https://github.com/hashicorp/terraform/blob/v1.17.0/internal/backend/remote-state/gcs/backend_state.go) の 113〜156 行目）
+- ロックのファイルは `<prefix>/<workspace>.tflock`。ロックを取るときに新しいファイルを書く（同じ `backend_state.go` の 25 行目・165〜166 行目、同じフォルダの [client.go](https://github.com/hashicorp/terraform/blob/v1.17.0/internal/backend/remote-state/gcs/client.go) の 96〜118 行目）。公式文書にはファイル名の記載を見つけられなかった
+- gcs backend は、アクセストークンを環境変数 `GOOGLE_OAUTH_ACCESS_TOKEN` から読む（[backend.go](https://github.com/hashicorp/terraform/blob/v1.17.0/internal/backend/remote-state/gcs/backend.go) の 109〜110 行目）
+- `-lock` の既定は true（[extended.go](https://github.com/hashicorp/terraform/blob/v1.17.0/internal/command/arguments/extended.go) の 270 行目）。`-lock=false` の説明は [terraform plan](https://developer.hashicorp.com/terraform/cli/commands/plan)
+- Docker のイメージは [Docker Hub の hashicorp/terraform](https://hub.docker.com/r/hashicorp/terraform)。スクリプトは版（`1.17.0`）とダイジェスト（イメージの中身から計算した値）の両方で固定している
 - 公式の [gcs バックエンドのページ](https://developer.hashicorp.com/terraform/language/backend/gcs)は "Storage Object Admin" を求める。ロックを取る使い方が前提と読める
 - `roles/storage.objectViewer` は `storage.objects.get` と `storage.objects.list` を含む（`gcloud iam roles describe roles/storage.objectViewer` で 2026-10-27 に確認）
 

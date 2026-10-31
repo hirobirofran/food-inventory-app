@@ -8,6 +8,7 @@
 #   - Actions のログを置くバケット（30 日で自動削除）
 #   - GitHub 用の Workload Identity Federation（WIF）のプールとプロバイダ
 #   - plan 用と apply 用のサービスアカウント（SA）と、その権限
+#   - Terraform の最初の state（無いときだけ。Docker の Terraform に作らせ、plan で「変更なし」を確かめる）
 #   - GitHub の Environment（apply のジョブを、承認されるまで止める。承認できるのは実行した人だけ）
 #   - GitHub Secrets（gh secret set。値は画面に出さない）
 #
@@ -28,6 +29,13 @@ APPLY_SA_NAME="tf-apply"
 # apply のジョブが通る GitHub の Environment の名前。ワークフローの environment: にも同じ名前を書く
 APPLY_ENV="terraform-apply"
 LOG_RETENTION_DAYS=30
+# state のバケットの中で、state を置くフォルダ（Terraform の backend の設定の prefix）。backend の設定にも同じ値を書く
+TF_STATE_PREFIX="gcp"
+# 最初の state を作るときだけ使う Terraform。この PC には入れず、HashiCorp の公式の Docker イメージで動かす。
+# 版とダイジェスト（イメージの中身から計算した値。同じ版の名前で中身を差し替えられても気づける）の両方で固定する。
+# ダイジェストは、CPU の種類ごとのイメージをまとめた一覧のもの（Docker Hub の 1.17.0 のタグで確認）
+TF_VERSION="1.17.0"
+TF_IMAGE="hashicorp/terraform:${TF_VERSION}@sha256:4d1b496a256f2989bccdb04b9104a4ede97234b10fba90259e173e905ec4fb58"
 
 REQUIRED_VARS=(
   GCP_PROJECT_ID GITHUB_REPO TF_STATE_BUCKET LOG_BUCKET APP_SA_EMAIL
@@ -154,7 +162,9 @@ fi
 # ---------------------------------------------------------------------
 LIFECYCLE_FILE="$(mktemp)"
 ERR_FILE="$(mktemp)"
-trap 'rm -f "$LIFECYCLE_FILE" "$ERR_FILE"' EXIT
+# 下の「8. 最初の state」で、state を作るときだけ使う一時フォルダ（.terraform/ もここにできる）
+TF_WORK_DIR=""
+trap 'rm -f "$LIFECYCLE_FILE" "$ERR_FILE"; [ -z "$TF_WORK_DIR" ] || rm -rf "$TF_WORK_DIR"' EXIT
 cat >"$LIFECYCLE_FILE" <<JSON
 {"rule": [{"action": {"type": "Delete"}, "condition": {"age": ${LOG_RETENTION_DAYS}}}]}
 JSON
@@ -378,7 +388,71 @@ bind_role project "$GCP_PROJECT_ID" "serviceAccount:${APPLY_SA}" roles/iam.workl
 bind_role project "$GCP_PROJECT_ID" "serviceAccount:${APPLY_SA}" roles/iam.serviceAccountAdmin
 
 # ---------------------------------------------------------------------
-# 8. GitHub の Environment
+# 8. 最初の state
+#    state のファイルが無いと、Terraform は init の途中で空の state を書こうとし、そのときロックの
+#    ファイルを作る。state を読むだけの plan 用 SA では、ここで止まる（-lock=false でも避けられない）。
+#    そこで、state が無いときだけ、このスクリプトを動かす人のログインで Terraform 自身に作らせ、
+#    続けて plan で「変更なし」を確かめる。state のファイルを手で書いて置くことはしない。
+#    Terraform は Docker の公式イメージで動かす（上の TF_IMAGE）。
+# ---------------------------------------------------------------------
+STATE_OBJECT="gs://${TF_STATE_BUCKET}/${TF_STATE_PREFIX}/default.tfstate"
+
+# tf_docker <terraform の引数...>  ... 一時フォルダを /work に入れて、Docker の Terraform を動かす。
+# 認証は環境変数 GOOGLE_OAUTH_ACCESS_TOKEN（gcs backend が読む）。-e には名前だけを渡し、値を引数に出さない
+tf_docker() {
+  local host_dir="$TF_WORK_DIR"
+  # Git Bash では、Docker に渡すフォルダを Windows の形（C:\...）にする
+  if command -v cygpath >/dev/null 2>&1; then host_dir="$(cygpath -w "$TF_WORK_DIR")"; fi
+  # MSYS_NO_PATHCONV=1 は、Git Bash が /work を Windows のパスに書き換えないようにするもの。docker の呼び出しにだけ付ける。
+  # --user: 一時フォルダにできるファイルを、この PC のユーザーの物にする（root の物になると、後で消せないことがある）
+  MSYS_NO_PATHCONV=1 docker run --rm \
+    --user "$(id -u):$(id -g)" -e HOME=/tmp -e CHECKPOINT_DISABLE=1 \
+    -e GOOGLE_OAUTH_ACCESS_TOKEN \
+    -v "${host_dir}:/work" -w /work \
+    "$TF_IMAGE" "$@"
+}
+
+if gcloud storage objects describe "$STATE_OBJECT" >/dev/null 2>&1; then
+  say "そのまま" "state $STATE_OBJECT"
+else
+  command -v docker >/dev/null 2>&1 \
+    || die "docker が見つかりません。最初の state を作るのに要ります。Docker Desktop を入れてください（docs/SETUP.md の 6 章）。"
+  docker info >/dev/null 2>&1 \
+    || die "Docker が動いていません。Docker Desktop を起動してから、もう一度動かしてください。"
+
+  TF_WORK_DIR="$(mktemp -d)"
+  cat >"$TF_WORK_DIR/main.tf" <<HCL
+terraform {
+  required_version = "= ${TF_VERSION}"
+  backend "gcs" {}
+}
+HCL
+
+  tf_token="$(gcloud auth print-access-token)" || die "gcloud のアクセストークンを取得できませんでした。"
+  [ -n "$tf_token" ] || die "gcloud のアクセストークンが空でした。'gcloud auth login' をやり直してください。"
+
+  GOOGLE_OAUTH_ACCESS_TOKEN="$tf_token" tf_docker init -input=false \
+    -backend-config="bucket=${TF_STATE_BUCKET}" -backend-config="prefix=${TF_STATE_PREFIX}" \
+    || die "terraform init が失敗しました（上が Terraform のエラー）。"
+  gcloud storage objects describe "$STATE_OBJECT" >/dev/null \
+    || die "terraform init の後も $STATE_OBJECT が見つかりません。"
+  say "作った" "state $STATE_OBJECT（Terraform $TF_VERSION の init）"
+
+  # -detailed-exitcode: 終了コードが 0 なら変更なし、2 なら変更あり、1 ならエラー
+  plan_rc=0
+  GOOGLE_OAUTH_ACCESS_TOKEN="$tf_token" tf_docker plan -input=false -lock=false -detailed-exitcode \
+    || plan_rc=$?
+  unset tf_token
+  [ "$plan_rc" -eq 0 ] \
+    || die "作った state に plan をかけたところ、「変更なし」になりませんでした（終了コード $plan_rc。上が Terraform の出力）。"
+  say "確かめた" "state $STATE_OBJECT に plan をかけて、変更なし"
+
+  rm -rf "$TF_WORK_DIR"
+  TF_WORK_DIR=""
+fi
+
+# ---------------------------------------------------------------------
+# 9. GitHub の Environment
 #    apply のジョブはこの Environment を通る。ジョブは承認されるまで止まり、承認できるのは
 #    このスクリプトを実行している gh のログインユーザーだけ。main 以外のブランチのジョブは通れない。
 #    毎回 PUT して望む形にそろえる（承認できる人を画面で変えていても、実行した人に戻る）。
@@ -433,7 +507,7 @@ else
 fi
 
 # ---------------------------------------------------------------------
-# 9. GitHub Secrets
+# 10. GitHub Secrets
 #    値は標準入力で渡す（--body だとプロセスの引数に値が出るため）。画面には名前と出どころだけ出す。
 #    すでにある Secret は上書きされる（同じ値なら変わらない）。
 # ---------------------------------------------------------------------

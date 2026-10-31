@@ -367,6 +367,25 @@ bind_role() {
 bind_role sa "$PLAN_SA" "${PRINCIPAL_BASE}/attribute.repository_id/${REPO_ID}" roles/iam.workloadIdentityUser
 bind_role sa "$APPLY_SA" "$APPLY_PRINCIPAL" roles/iam.workloadIdentityUser
 
+# この 2 つの SA は Terraform 専用なので、借りられる相手は決めた 1 つだけにする。
+# 上で付けた相手以外で、roles/iam.workloadIdentityUser を持つメンバーを外す（条件付きの付与も、--all で外す）
+# keep_only_borrower <SA> <残すメンバー>
+keep_only_borrower() {
+  local sa="$1" keep="$2" role=roles/iam.workloadIdentityUser rows m
+  rows="$(gcloud iam service-accounts get-iam-policy "$sa" --project "$GCP_PROJECT_ID" \
+    --flatten='bindings[].members' --filter="bindings.role=\"$role\"" \
+    --format='value(bindings.members)')" || die "$sa の IAM ポリシーを読めませんでした。"
+  while IFS= read -r m; do
+    [ -n "$m" ] && [ "$m" != "$keep" ] || continue
+    gcloud iam service-accounts remove-iam-policy-binding "$sa" --project "$GCP_PROJECT_ID" \
+      --member "$m" --role "$role" --all --quiet >/dev/null \
+      || die "$sa から、その他の借り手を外せませんでした。"
+    say "外した" "sa $sa: $role のその他の借り手を外した"
+  done <<<"$rows"
+}
+keep_only_borrower "$PLAN_SA" "${PRINCIPAL_BASE}/attribute.repository_id/${REPO_ID}"
+keep_only_borrower "$APPLY_SA" "$APPLY_PRINCIPAL"
+
 # state のバケット: plan は読むだけ、apply は読み書き
 bind_role bucket "$TF_STATE_BUCKET" "serviceAccount:${PLAN_SA}" roles/storage.objectViewer
 bind_role bucket "$TF_STATE_BUCKET" "serviceAccount:${APPLY_SA}" roles/storage.objectAdmin

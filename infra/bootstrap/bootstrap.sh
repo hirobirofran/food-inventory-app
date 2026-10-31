@@ -367,20 +367,6 @@ bind_role() {
 bind_role sa "$PLAN_SA" "${PRINCIPAL_BASE}/attribute.repository_id/${REPO_ID}" roles/iam.workloadIdentityUser
 bind_role sa "$APPLY_SA" "$APPLY_PRINCIPAL" roles/iam.workloadIdentityUser
 
-# unbind_sa_user <SA> <メンバー> <説明>  ... 前の版が付けた、SA を借りる許可が残っていれば外す
-unbind_sa_user() {
-  local sa="$1" member="$2" label="$3" bound
-  bound="$(get_bound sa "$sa" "$member" roles/iam.workloadIdentityUser)"
-  [ -n "$bound" ] || return 0
-  gcloud iam service-accounts remove-iam-policy-binding "$sa" --project "$GCP_PROJECT_ID" \
-    --member "$member" --role roles/iam.workloadIdentityUser --condition=None --quiet >/dev/null
-  say "外した" "sa $sa: $label に貸す roles/iam.workloadIdentityUser"
-}
-# 名前で絞った plan 用の許可。残すと、同じ名前を取り直した別のリポジトリにも貸せる形が残る
-unbind_sa_user "$PLAN_SA" "${PRINCIPAL_BASE}/attribute.repository/${GITHUB_REPO}" "リポジトリの名前"
-# main のジョブなら apply 用 SA を借りられる許可。残すと、承認を通らない main のジョブも借りられてしまう
-unbind_sa_user "$APPLY_SA" "${PRINCIPAL_BASE}/attribute.ref/refs/heads/main" "main のジョブ"
-
 # state のバケット: plan は読むだけ、apply は読み書き
 bind_role bucket "$TF_STATE_BUCKET" "serviceAccount:${PLAN_SA}" roles/storage.objectViewer
 bind_role bucket "$TF_STATE_BUCKET" "serviceAccount:${APPLY_SA}" roles/storage.objectAdmin

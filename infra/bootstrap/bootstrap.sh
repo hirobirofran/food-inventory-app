@@ -382,6 +382,17 @@ keep_only_borrower() {
       || die "$sa から、その他の借り手を外せませんでした。"
     say "外した" "sa $sa: $role のその他の借り手を外した"
   done <<<"$rows"
+  # 残すメンバーの書き方が IAM の返す形と違うと、上で正しい借り手まで外してしまう。
+  # 残っていることを読み直して確かめる（反映の遅れに備えて数回）
+  local i
+  for i in 1 2 3; do
+    rows="$(gcloud iam service-accounts get-iam-policy "$sa" --project "$GCP_PROJECT_ID" \
+      --flatten='bindings[].members' --filter="bindings.role=\"$role\"" \
+      --format='value(bindings.members)')" || die "$sa の IAM ポリシーを読めませんでした。"
+    if grep -Fxq -- "$keep" <<<"$rows"; then return 0; fi
+    if [ "$i" -lt 3 ]; then sleep 10; fi
+  done
+  die "$sa を借りられる相手（$role）に、残すはずの借り手がありません。スクリプトの借り手の書き方を確かめてください。"
 }
 keep_only_borrower "$PLAN_SA" "${PRINCIPAL_BASE}/attribute.repository_id/${REPO_ID}"
 keep_only_borrower "$APPLY_SA" "$APPLY_PRINCIPAL"

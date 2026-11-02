@@ -5,26 +5,26 @@
 ```
 [スマホ / PC / タブレット（ブラウザ）]
            ↓
-   Next.js PWA（Vercel）
+   Next.js アプリ（Vercel）
      ├── UI（React + Tailwind）
      ├── API Routes（バックエンド処理）
      │     ├── Google Sheets API  ← データの読み書き
-     │     ├── Claude API         ← AI機能全般
+     │     ├── Gemini API         ← レシピ提案・買い物リスト提案
      │     └── Gmail API          ← 購入メール解析（Phase 2）
-     └── PWA（ホーム画面追加・Push通知）
+     └── PWA（未設定。ホーム画面追加はブラウザ機能で代用。Push通知は将来）
 ```
 
 ## 技術スタック
 
 | 役割 | 技術 | 理由 |
 |------|------|------|
-| フロントエンド | Next.js 15 (App Router) | SSR/CSRの柔軟性、API Routesでバックエンドも一体化 |
+| フロントエンド | Next.js 16 (App Router) | SSR/CSRの柔軟性、API Routesでバックエンドも一体化 |
 | スタイル | Tailwind CSS | モバイルファーストのUI構築が速い |
 | 言語 | TypeScript | 型安全性。食材データの構造を明確に保てる |
 | データ保存 | Google Sheets API | 既存Googleアカウントで使える。家族共有が簡単。バックアップ自動 |
-| AI | Claude API (claude-sonnet-4-6) | レシピ提案・OCR・買い物プラン生成。Vision対応 |
+| AI | Gemini API (`gemini-3.5-flash-lite`、`@google/genai`) | レシピ提案・買い物リストの提案。レシート OCR は未実装（`handoff/ideas/receipt-ocr.md`） |
 | デプロイ | Vercel | Next.jsと相性最良。無料枠あり。スマホからもアクセス可 |
-| PWA | next-pwa | スマホのホーム画面に追加できる（アプリ感覚） |
+| PWA | 未設定 | manifest・Service Worker・アイコンは無く、スマホはブラウザの「ホーム画面に追加」で開く。PWA 化の案は `handoff/ideas/launch-plan.md` の Step 3 |
 
 ## データ設計（Google Sheets）
 
@@ -61,15 +61,16 @@
 - 食材管理程度のデータ量では速度問題なし
 - 将来的にSupabase等へ移行することも可能
 
-### なぜClaudeを選ぶか（GeminiではなくClaude）
-- Vision（画像認識）の精度が高い → レシート読み取りに有利
-- 日本語の料理レシピ生成の品質が良い
-- Anthropic APIの料金体系がコントロールしやすい
+### AI は Gemini を使っている
+- 実装は `@google/genai` と `gemini-3.5-flash-lite`（Issue #31 で更新）。無料枠の範囲で運用している
+- 無料枠が使えなくなった場合の代案（Claude API への切り替えなど）は `handoff/ideas/ai-provider-alternatives.md`
+- モデル名は世代交代が早い（`docs/KNOWLEDGE.md`）
 
 ### PWA vs ネイティブアプリ
 - ネイティブアプリ（React Native等）はApp Store審査が必要
 - PWAならWebブラウザだけで「ホーム画面に追加」できる
 - スマホカメラへのアクセスもPWAで可能
+- 現時点では PWA 化は未着手（上の技術スタック表を参照）
 
 ## ディレクトリ構成
 
@@ -77,10 +78,10 @@
 src/
 ├── app/
 │   ├── page.tsx           # メインページ（タブ切り替え）
-│   ├── layout.tsx         # PWA設定・メタデータ
+│   ├── layout.tsx         # ルートレイアウト・メタデータ
 │   └── api/
 │       ├── foods/         # 食材CRUD（Google Sheets連携）
-│       └── ai/            # AI提案エンドポイント（Claude API）
+│       └── ai/            # AI提案エンドポイント（Gemini API）
 ├── components/
 │   ├── FoodList.tsx       # 食材一覧（フィルター・ソート）
 │   ├── FoodFormModal.tsx  # 食材追加・編集フォーム
@@ -88,7 +89,7 @@ src/
 │   └── ExpiryBadge.tsx    # 賞味期限バッジ（色分け）
 ├── lib/
 │   ├── mockData.ts        # 開発用モックデータ
-│   └── sheets.ts          # Google Sheets APIクライアント（未実装）
+│   └── sheets.ts          # Google Sheets APIクライアント
 └── types/
     └── food.ts            # 型定義・ユーティリティ関数
 ```

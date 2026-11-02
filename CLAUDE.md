@@ -4,22 +4,22 @@
 
 ## このプロジェクトは何か
 
-自炊をラクにする食材管理 PWA。「今何がある？何が作れる？何を買えばいい？」をAIが答えてくれるアプリ。
+自炊をラクにする食材管理の Web アプリ。「今何がある？何が作れる？何を買えばいい？」をAIが答えてくれる。スマホではブラウザの「ホーム画面に追加」で使う。
 
 オーナー: ひろゆきさん（個人利用。将来的に家族共有あり）
 
 ## 技術スタック
 
-- **フロントエンド**: Next.js 15 (App Router) + TypeScript + Tailwind CSS
+- **フロントエンド**: Next.js 16 (App Router) + TypeScript + Tailwind CSS（正確な版は `package.json`）
 - **データ**: Google Sheets API（データベース代わり）
-- **AI**: Claude API `claude-sonnet-4-6`（レシピ提案・OCR）
+- **AI**: Gemini API `gemini-3.5-flash-lite`（`@google/genai`。レシピ提案と買い物リストの提案。レシート OCR は未実装）。他プロバイダへの切り替え案は `handoff/ideas/ai-provider-alternatives.md`
 - **デプロイ**: Vercel
-- **PWA**: スマホのホーム画面に追加して使う
+- **PWA**: 未設定（manifest・Service Worker・アイコンは無い。`next-pwa` は PR #52 で削除済み）。PWA 化の案は `handoff/ideas/launch-plan.md` の Step 3
 
 ## 現在の状態
 
-- Phase 1 UI 実装済み（モックデータで動作）
-- Google Sheets 連携・Claude API 連携は**未実装**
+- 本番（Vercel）で稼働中。2026-10 に実在庫の登録を始めた
+- Google Sheets 連携と Gemini によるレシピ提案は実装済み
 - 次にやること → `docs/TASKS.md` の「次にやること」セクションを参照
 
 ## 重要ルール
@@ -91,7 +91,7 @@ Issue を起票してから PR を作る。本文の書式は `.github/ISSUE_TEM
 | `docs/ARCHITECTURE.md`  | 技術選定の理由・データ設計・ディレクトリ構成 |
 | `docs/TASKS.md`         | タスク一覧・進捗・次にやること               |
 | `docs/KNOWLEDGE.md`     | 気づき・ハマりポイント・申し送り             |
-| `docs/SETUP.md`         | 環境構築手順（Google Sheets・Claude API等）  |
+| `docs/SETUP.md`         | 環境構築手順（Google Sheets・Gemini・Google ログイン等） |
 | `handoff/issues/i<N>/`  | Issue ごとの引き継ぎ（現状・失敗・再開手順）   |
 | `handoff/prs/pr<N>/`    | Issue の無い PR の引き継ぎ（同上）             |
 | `handoff/ideas/`        | 未来にやりたいこと（1 件 1 ファイル）         |

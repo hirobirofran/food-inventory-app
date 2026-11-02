@@ -17,7 +17,7 @@
 - 完了条件: 本番で AI 提案が返る。チーズに開封日を入れると開封後期限で警告が出る
 
 ## Step 3 PWA 化（Claude Code、1 セッション）
-- manifest、アイコン 2 サイズ、service worker。package.json の next-pwa は未設定で、manifest もアイコンも無い
+- manifest、アイコン 2 サイズ、service worker。`next-pwa` は未使用のまま PR #52 で削除済みで、manifest もアイコンも無い。手段（手書きの manifest + Service Worker、または代替ライブラリ）は着手時に選ぶ
 - proxy.ts は manifest と icon を認証除外済み
 - 完了条件: iPhone と Android のホーム画面からアドレスバー無しで起動する
 - スコープ外: オフライン動作、Push 通知

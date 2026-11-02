@@ -1,11 +1,11 @@
-import { google } from 'googleapis';
+import { sheets as sheetsApi, auth as googleAuth } from '@googleapis/sheets';
 import { FoodItem } from '@/types/food';
 
 const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID!;
 const SHEET_NAME = 'inventory';
 
 function getAuth() {
-  return new google.auth.GoogleAuth({
+  return new googleAuth.GoogleAuth({
     credentials: {
       client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
       private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
@@ -48,7 +48,7 @@ function foodToRow(food: Omit<FoodItem, 'id'> & { id?: string }): string[] {
 
 export async function getFoods(): Promise<FoodItem[]> {
   const auth = getAuth();
-  const sheets = google.sheets({ version: 'v4', auth });
+  const sheets = sheetsApi({ version: 'v4', auth });
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
@@ -61,7 +61,7 @@ export async function getFoods(): Promise<FoodItem[]> {
 
 export async function addFood(data: Omit<FoodItem, 'id'>): Promise<FoodItem> {
   const auth = getAuth();
-  const sheets = google.sheets({ version: 'v4', auth });
+  const sheets = sheetsApi({ version: 'v4', auth });
   const id = Date.now().toString();
   const newFood: FoodItem = { ...data, id };
 
@@ -77,7 +77,7 @@ export async function addFood(data: Omit<FoodItem, 'id'>): Promise<FoodItem> {
 
 export async function updateFood(id: string, data: Omit<FoodItem, 'id'>): Promise<FoodItem> {
   const auth = getAuth();
-  const sheets = google.sheets({ version: 'v4', auth });
+  const sheets = sheetsApi({ version: 'v4', auth });
 
   // 行番号を検索
   const res = await sheets.spreadsheets.values.get({
@@ -103,7 +103,7 @@ export async function updateFood(id: string, data: Omit<FoodItem, 'id'>): Promis
 
 export async function deleteFood(id: string): Promise<void> {
   const auth = getAuth();
-  const sheets = google.sheets({ version: 'v4', auth });
+  const sheets = sheetsApi({ version: 'v4', auth });
 
   // シートIDを取得
   const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });

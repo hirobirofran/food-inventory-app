@@ -62,7 +62,7 @@
 - 将来的にSupabase等へ移行することも可能
 
 ### AI は Gemini を使っている
-- 実装は `@google/genai` と `gemini-3.5-flash-lite`（Issue #31 で更新）。無料枠の範囲で運用している
+- 実装は `@google/genai` と `gemini-3.5-flash-lite`（2026-10 に更新。Issue #31）。無料枠の範囲で運用している
 - 無料枠が使えなくなった場合の代案（Claude API への切り替えなど）は `handoff/ideas/ai-provider-alternatives.md`
 - モデル名は世代交代が早い（`docs/KNOWLEDGE.md`）
 

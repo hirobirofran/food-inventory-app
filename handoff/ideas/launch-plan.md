@@ -22,9 +22,9 @@
 - 完了条件: iPhone と Android のホーム画面からアドレスバー無しで起動する
 - スコープ外: オフライン動作、Push 通知
 
-## Step 4 docs 更新（Claude Code、30 分。Issue #19）
+## Step 4 docs 更新（Claude Code、30 分。Issue #19 で対応済み）
 - CLAUDE.md の「現在の状態」「技術スタック」、SETUP.md の環境変数一覧、ARCHITECTURE.md の AI 選定理由
-- いずれも「Sheets 未実装」「Claude API 利用」と書かれているが、実際は Sheets 連携済みで AI は Gemini
+- いずれも「Sheets 未実装」「Claude API 利用」と書かれていたが、実際は Sheets 連携済みで AI は Gemini
 - 完了条件: 新しいセッションの Claude Code が Sheets 連携を未実装と誤認しない
 
 ---

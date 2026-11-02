@@ -14,7 +14,7 @@
 - **データ**: Google Sheets API（データベース代わり）
 - **AI**: Gemini API `gemini-3.5-flash-lite`（`@google/genai`。レシピ提案と買い物リストの提案。レシート OCR は未実装）。他プロバイダへの切り替え案は `handoff/ideas/ai-provider-alternatives.md`
 - **デプロイ**: Vercel
-- **PWA**: 未設定（manifest・Service Worker・アイコンは無い。`next-pwa` は PR #52 で削除済み）。PWA 化の案は `handoff/ideas/launch-plan.md` の Step 3
+- **PWA**: 未設定。manifest・Service Worker・アイコンが無い（`next-pwa` は PR #52 で削除済み）。PWA 化の案は `handoff/ideas/launch-plan.md` の Step 3
 
 ## 現在の状態
 

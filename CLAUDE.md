@@ -12,15 +12,17 @@
 
 - **フロントエンド**: Next.js 16 (App Router) + TypeScript + Tailwind CSS（正確な版は `package.json`）
 - **データ**: Google Sheets API（データベース代わり）
+- **認証**: Google ログイン（Auth.js `next-auth`。許可リストに入れた Google アカウントだけが使える。手順は `docs/SETUP.md` の 3 章）
 - **AI**: Gemini API `gemini-3.5-flash-lite`（`@google/genai`。レシピ提案と買い物リストの提案。レシート OCR は未実装）。他プロバイダへの切り替え案は `handoff/ideas/ai-provider-alternatives.md`
 - **デプロイ**: Vercel
-- **PWA**: 未設定。manifest・Service Worker・アイコンが無い（`next-pwa` は PR #52 で削除済み）。PWA 化の案は `handoff/ideas/launch-plan.md` の Step 3
+- **PWA**: 未設定（何が無いかと PWA 化の案は `docs/ARCHITECTURE.md` の技術スタック表）
 
 ## 現在の状態
 
 - 本番（Vercel）で稼働中。2026-10 に実在庫の登録を始めた
 - Google Sheets 連携と Gemini によるレシピ提案は実装済み
-- 次にやること → `docs/TASKS.md` の「次にやること」セクションを参照
+- 画面も API も Google ログインが必須。ローカル（`npm run dev`）ではログインできないので、画面の確認は PR のプレビュー環境で行う（`docs/SETUP.md` の 1 章と 4 章）
+- 次にやること → `docs/TASKS.md` の「次にやること」セクションを参照（一部古い。整理は #55）
 
 ## 重要ルール
 

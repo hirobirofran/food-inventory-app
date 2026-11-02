@@ -7,22 +7,24 @@
            ↓
    Next.js アプリ（Vercel）
      ├── UI（React + Tailwind）
+     ├── 認証（Auth.js + Google ログイン。proxy.ts で画面と API を保護）
      ├── API Routes（バックエンド処理）
      │     ├── Google Sheets API  ← データの読み書き
      │     ├── Gemini API         ← レシピ提案・買い物リスト提案
      │     └── Gmail API          ← 購入メール解析（Phase 2）
-     └── PWA（未設定。ホーム画面追加はブラウザ機能で代用。Push通知は将来）
+     └── PWA（未設定。ホーム画面追加はブラウザ機能で代用）
 ```
 
 ## 技術スタック
 
 | 役割 | 技術 | 理由 |
 |------|------|------|
-| フロントエンド | Next.js 16 (App Router) | SSR/CSRの柔軟性、API Routesでバックエンドも一体化 |
+| フロントエンド | Next.js 16 (App Router。正確な版は `package.json`) | SSR/CSRの柔軟性、API Routesでバックエンドも一体化 |
 | スタイル | Tailwind CSS | モバイルファーストのUI構築が速い |
 | 言語 | TypeScript | 型安全性。食材データの構造を明確に保てる |
 | データ保存 | Google Sheets API | 既存Googleアカウントで使える。家族共有が簡単。バックアップ自動 |
-| AI | Gemini API (`gemini-3.5-flash-lite`、`@google/genai`) | レシピ提案・買い物リストの提案。レシート OCR は未実装（`handoff/ideas/receipt-ocr.md`） |
+| 認証 | Auth.js (`next-auth` v5) + Google ログイン | 許可リスト（環境変数 `AUTH_ALLOWED_EMAILS`）に入れた Google アカウントだけが使える。手順は `docs/SETUP.md` の 3 章 |
+| AI | Gemini API (`gemini-3.5-flash-lite`、`@google/genai`) | 無料枠の範囲で運用できる。用途はレシピ提案・買い物リストの提案。レシート OCR は未実装（`handoff/ideas/receipt-ocr.md`） |
 | デプロイ | Vercel | Next.jsと相性最良。無料枠あり。スマホからもアクセス可 |
 | PWA | 未設定 | manifest・Service Worker・アイコンは無く、スマホはブラウザの「ホーム画面に追加」で開く。PWA 化の案は `handoff/ideas/launch-plan.md` の Step 3 |
 
@@ -61,8 +63,8 @@
 - 食材管理程度のデータ量では速度問題なし
 - 将来的にSupabase等へ移行することも可能
 
-### AI は Gemini を使っている
-- 実装は `@google/genai` と `gemini-3.5-flash-lite`（2026-10 に更新。Issue #31）。無料枠の範囲で運用している
+### なぜGeminiを使っているか
+- 無料枠の範囲で運用できる（実装は `@google/genai` と `gemini-3.5-flash-lite`。2026-10 に更新、Issue #31）
 - 無料枠が使えなくなった場合の代案（Claude API への切り替えなど）は `handoff/ideas/ai-provider-alternatives.md`
 - モデル名は世代交代が早い（`docs/KNOWLEDGE.md`）
 
@@ -80,15 +82,20 @@ src/
 │   ├── page.tsx           # メインページ（タブ切り替え）
 │   ├── layout.tsx         # ルートレイアウト・メタデータ
 │   └── api/
+│       ├── auth/          # Google ログイン（Auth.js）
 │       ├── foods/         # 食材CRUD（Google Sheets連携）
 │       └── ai/            # AI提案エンドポイント（Gemini API）
+├── auth.ts / auth.config.ts  # Auth.js の設定（許可リストの確認）
+├── proxy.ts               # 未ログインの要求を止める（画面はログインへ、API は 401）
 ├── components/
 │   ├── FoodList.tsx       # 食材一覧（フィルター・ソート）
 │   ├── FoodFormModal.tsx  # 食材追加・編集フォーム
 │   ├── ShoppingList.tsx   # 買い物リスト
+│   ├── AiSuggest.tsx      # AI提案の画面（/api/ai/suggest を呼ぶ）
 │   └── ExpiryBadge.tsx    # 賞味期限バッジ（色分け）
 ├── lib/
-│   ├── mockData.ts        # 開発用モックデータ
+│   ├── format.ts          # 数量の表示用の整形
+│   ├── mockData.ts        # モックデータ（現在は未使用）
 │   └── sheets.ts          # Google Sheets APIクライアント
 └── types/
     └── food.ts            # 型定義・ユーティリティ関数

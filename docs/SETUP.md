@@ -409,13 +409,13 @@ Secrets の使い道: `GCP_PROJECT_ID` から `LOG_BUCKET` までの 6 つは、
 - apply の途中の state を plan が読むことはありうる。plan と apply は、同じ concurrency グループ（GitHub Actions で、同じグループの実行を同時に走らせず 1 本ずつ並べる設定）で動かして、これを避ける
 - 読むだけの権限で plan が通ることは、Terraform の公式文書には書かれていない（公式文書は Storage Object Admin を求めている）。Terraform の設定を入れた後の PR で、最初に Actions の plan を動かすときに確かめる。plan が権限の不足で失敗したら、この節を見直す
 
-出典（Terraform のソースは v1.17.0。スクリプトが使う版と同じ）:
+出典（Terraform のソースは、確かめた時点でスクリプトが使っていた v1.17.0）:
 
 - state が無いときの動き: `terraform init` が backend から state を取り出し（[init_run.go](https://github.com/hashicorp/terraform/blob/v1.17.0/internal/command/init_run.go) の 320 行目）、gcs backend は state が無ければロックを取ってから空の state を書く（[backend_state.go](https://github.com/hashicorp/terraform/blob/v1.17.0/internal/backend/remote-state/gcs/backend_state.go) の 113〜156 行目）
 - ロックのファイルは `<prefix>/<workspace>.tflock`。ロックを取るときに新しいファイルを書く（同じ `backend_state.go` の 25 行目・165〜166 行目、同じフォルダの [client.go](https://github.com/hashicorp/terraform/blob/v1.17.0/internal/backend/remote-state/gcs/client.go) の 96〜118 行目）。公式文書にはファイル名の記載を見つけられなかった
 - gcs backend は、アクセストークンを環境変数 `GOOGLE_OAUTH_ACCESS_TOKEN` から読む（[backend.go](https://github.com/hashicorp/terraform/blob/v1.17.0/internal/backend/remote-state/gcs/backend.go) の 109〜110 行目）
 - `-lock` の既定は true（[extended.go](https://github.com/hashicorp/terraform/blob/v1.17.0/internal/command/arguments/extended.go) の 270 行目）。`-lock=false` の説明は [terraform plan](https://developer.hashicorp.com/terraform/cli/commands/plan)
-- Docker のイメージは [Docker Hub の hashicorp/terraform](https://hub.docker.com/r/hashicorp/terraform)。スクリプトは版（`1.17.0`）とダイジェスト（イメージの中身から計算した値）の両方で固定している
+- Docker のイメージは [Docker Hub の hashicorp/terraform](https://hub.docker.com/r/hashicorp/terraform)。スクリプトは版とダイジェスト（イメージの中身から計算した値）の両方で固定している（`infra/bootstrap/bootstrap.sh` の `TF_VERSION` と `TF_IMAGE`）
 - 公式の [gcs バックエンドのページ](https://developer.hashicorp.com/terraform/language/backend/gcs)は "Storage Object Admin" を求める。ロックを取る使い方が前提と読める
 - `roles/storage.objectViewer` は `storage.objects.get` と `storage.objects.list` を含む（`gcloud iam roles describe roles/storage.objectViewer` で 2026-10-27 に確認）
 

@@ -15,7 +15,7 @@
 
 ## 技術スタック
 
-版は `package.json`（Node.js は `.nvmrc`）を見る。
+版は `package.json`（Node.js は `.nvmrc` と `package.json` の `engines`）を見る。
 
 | 役割 | 技術 | 理由 |
 |------|------|------|

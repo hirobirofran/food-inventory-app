@@ -95,7 +95,7 @@ Issue を起票してから PR を作る。本文の書式は `.github/ISSUE_TEM
 | `docs/VISION.md`        | やりたいこと・ゴール・利用シーン             |
 | `docs/ARCHITECTURE.md`  | 技術選定の理由・データ設計・ディレクトリ構成 |
 | `docs/TASKS.md`         | タスク一覧・進捗・次にやること               |
-| `docs/KNOWLEDGE.md`     | 気づき・ハマりポイント・申し送り             |
+| `docs/KNOWLEDGE.md`     | 過去の気づき・ハマりポイント（日付ごとの記録） |
 | `docs/SETUP.md`         | 環境構築手順（Google Sheets・Gemini・Google ログイン等） |
 | `handoff/issues/i<N>/`  | Issue ごとの引き継ぎ（現状・失敗・再開手順）   |
 | `handoff/prs/pr<N>/`    | Issue の無い PR の引き継ぎ（同上）             |

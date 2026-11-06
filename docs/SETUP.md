@@ -1,6 +1,7 @@
 ---
 title: 環境構築手順書
-description: 食材管理アプリを Google Cloud と Vercel で動かすための設定手順と、日々の運用
+audience: このアプリを Google Cloud と Vercel で動かす人と、今の環境を保守する人。Git・Node.js・ターミナルは使えるが、このアプリの Google Cloud と Vercel の設定は知らない。
+purpose: アプリが動くための設定の多くはコードの外（Google Cloud と Vercel の画面）にあり、リポジトリを読んでもわからない。それを残して、同じ環境を作り直せるようにし、本番を壊さずに変更を確かめられるようにするため。
 updated: 2026-11-07
 ---
 

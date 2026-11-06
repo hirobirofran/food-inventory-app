@@ -1,3 +1,10 @@
+---
+title: 食材管理アプリ（food-inventory-app）
+audience: このリポジトリを初めて開いた外部の人。アプリの中身も、このリポジトリの決まりも、まだ何も知らない。
+purpose: 初めて来た人が手元で動かそうとして迷わないように、最初に読む文書（環境構築の手順）へ案内するため。手元では画面が動かないことを先に知らせ、時間を無駄にさせないため。
+updated: 2026-11-07
+---
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

@@ -48,11 +48,7 @@
 
 `quantity` は同じ品目の合計個数、`expiryDate` は最も近い期限を入れる。消費したら個数を減らし、次の期限に書き換える。個数ごとの期限（ロット管理）は `handoff/ideas/item-data-model.md` を参照。
 
-### カテゴリ
-`野菜・果物` / `肉・魚` / `乳製品・卵` / `調味料` / `飲み物` / `冷凍食品` / `その他`
-
-### 保存場所
-`冷蔵庫` / `冷凍庫` / `常温` / `その他`
+`category` と `storageLocation` に入る値の一覧は、`src/types/food.ts` の `Category` と `StorageLocation` を見る。
 
 ## 重要な設計判断
 

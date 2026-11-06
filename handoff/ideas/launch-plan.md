@@ -1,6 +1,6 @@
 # 実用化の残りステップ（チーズ登録から始める）
 
-状態: Step 0 は 2026-10-03、Step 1 は 2026-10-11 までに完了（本番で実在庫の登録を開始し、気づきを Issue #14〜#28 に記録）。Step 2 から。ただし順番は `docs/TASKS.md` の次にやること（Issue #1 は 2026-10-11 完了。次は Gemini 更新）を優先する。
+状態: Step 0 は 2026-10-03、Step 1 は 2026-10-11 までに完了（本番で実在庫の登録を開始し、気づきを Issue #14〜#28 に記録）。Step 2 は途中（PR #10 が未マージ）。Step 3 は未着手。Step 4 は Issue #19 で対応済み。順番は `docs/TASKS.md` の次にやることを優先する。
 図解版: https://claude.ai/artifact/7zqdR7iSvmbD7ZGNxZtBi5 （オーナー専用リンク）
 
 ## Step 1 運用開始（オーナー、30 分）
@@ -17,14 +17,14 @@
 - 完了条件: 本番で AI 提案が返る。チーズに開封日を入れると開封後期限で警告が出る
 
 ## Step 3 PWA 化（Claude Code、1 セッション）
-- manifest、アイコン 2 サイズ、service worker。package.json の next-pwa は未設定で、manifest もアイコンも無い
+- manifest、アイコン 2 サイズ、service worker。`next-pwa` は未使用のまま PR #52 で削除済みで、manifest もアイコンも無い。手段（手書きの manifest + Service Worker、または代替ライブラリ）は着手時に選ぶ
 - proxy.ts は manifest と icon を認証除外済み
 - 完了条件: iPhone と Android のホーム画面からアドレスバー無しで起動する
 - スコープ外: オフライン動作、Push 通知
 
-## Step 4 docs 更新（Claude Code、30 分。Issue #19）
+## Step 4 docs 更新（Claude Code、30 分。Issue #19 で対応済み）
 - CLAUDE.md の「現在の状態」「技術スタック」、SETUP.md の環境変数一覧、ARCHITECTURE.md の AI 選定理由
-- いずれも「Sheets 未実装」「Claude API 利用」と書かれているが、実際は Sheets 連携済みで AI は Gemini
+- いずれも「Sheets 未実装」「Claude API 利用」と書かれていたが、実際は Sheets 連携済みで AI は Gemini
 - 完了条件: 新しいセッションの Claude Code が Sheets 連携を未実装と誤認しない
 
 ---

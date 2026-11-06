@@ -10,21 +10,21 @@
      ├── 認証（Auth.js + Google ログイン。proxy.ts で画面と API を保護）
      ├── API Routes（バックエンド処理）
      │     ├── Google Sheets API  ← データの読み書き
-     │     ├── Gemini API         ← レシピ提案・買い物リスト提案
-     │     └── Gmail API          ← 購入メール解析（Phase 2）
-     └── PWA（未設定。ホーム画面追加はブラウザ機能で代用）
+     │     └── Gemini API         ← レシピ提案・買い物リスト提案
 ```
 
 ## 技術スタック
 
+版は `package.json`（Node.js は `.nvmrc` と `package.json` の `engines`）を見る。
+
 | 役割 | 技術 | 理由 |
 |------|------|------|
-| フロントエンド | Next.js 16 (App Router。正確な版は `package.json`) | SSR/CSRの柔軟性、API Routesでバックエンドも一体化 |
+| フロントエンド | Next.js (App Router) | SSR/CSRの柔軟性、API Routesでバックエンドも一体化 |
 | スタイル | Tailwind CSS | モバイルファーストのUI構築が速い |
 | 言語 | TypeScript | 型安全性。食材データの構造を明確に保てる |
 | データ保存 | Google Sheets API | 既存Googleアカウントで使える。家族共有が簡単。バックアップ自動 |
-| 認証 | Auth.js (`next-auth` v5) + Google ログイン | 許可リスト（環境変数 `AUTH_ALLOWED_EMAILS`）に入れた Google アカウントだけが使える。手順は `docs/SETUP.md` の 3 章 |
-| AI | Gemini API (`gemini-3.5-flash-lite`、`@google/genai`) | 無料枠の範囲で運用できる。用途はレシピ提案・買い物リストの提案。レシート OCR は未実装（`handoff/ideas/receipt-ocr.md`） |
+| 認証 | Auth.js (`next-auth`) + Google ログイン | 許可リスト（環境変数 `AUTH_ALLOWED_EMAILS`）に入れた Google アカウントだけが使える。手順は `docs/SETUP.md` の 3 章 |
+| AI | Gemini API (`@google/genai`。モデル名は `src/app/api/ai/suggest/route.ts`) | 無料枠の範囲で運用できる。用途はレシピ提案・買い物リストの提案。レシート OCR は未実装（`handoff/ideas/receipt-ocr.md`） |
 | デプロイ | Vercel | Next.jsと相性最良。無料枠あり。スマホからもアクセス可 |
 | PWA | 未設定 | manifest・Service Worker・アイコンは無く、スマホはブラウザの「ホーム画面に追加」で開く。PWA 化の案は `handoff/ideas/launch-plan.md` の Step 3 |
 
@@ -48,11 +48,7 @@
 
 `quantity` は同じ品目の合計個数、`expiryDate` は最も近い期限を入れる。消費したら個数を減らし、次の期限に書き換える。個数ごとの期限（ロット管理）は `handoff/ideas/item-data-model.md` を参照。
 
-### カテゴリ
-`野菜・果物` / `肉・魚` / `乳製品・卵` / `調味料` / `飲み物` / `冷凍食品` / `その他`
-
-### 保存場所
-`冷蔵庫` / `冷凍庫` / `常温` / `その他`
+`category` と `storageLocation` に入る値の一覧は、`src/types/food.ts` の `Category` と `StorageLocation` を見る。
 
 ## 重要な設計判断
 
@@ -64,7 +60,7 @@
 - 将来的にSupabase等へ移行することも可能
 
 ### なぜGeminiを使っているか
-- 無料枠の範囲で運用できる（実装は `@google/genai` と `gemini-3.5-flash-lite`。2026-10 に更新、Issue #31）
+- 無料枠の範囲で運用できる
 - 無料枠が使えなくなった場合の代案（Claude API への切り替えなど）は `handoff/ideas/ai-provider-alternatives.md`
 - モデル名は世代交代が早い（`docs/KNOWLEDGE.md`）
 
@@ -72,7 +68,7 @@
 - ネイティブアプリ（React Native等）はApp Store審査が必要
 - PWAならWebブラウザだけで「ホーム画面に追加」できる
 - スマホカメラへのアクセスもPWAで可能
-- 現時点では PWA 化は未着手（上の技術スタック表を参照）
+- PWA 化の状況と案は、上の技術スタック表の PWA の行を参照
 
 ## ディレクトリ構成
 

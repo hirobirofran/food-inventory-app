@@ -12,7 +12,7 @@
 
 1. 1 時間以内に Vercel のプロジェクト → Logs を開く（Hobby プランは保持が短い）
 2. `AI suggest error (NNNNNms):` の行を探す
-   - 約 30000ms → Gemini 側の遅さ。Gemini のステータスとモデル名（`gemini-3.5-flash-lite`）の状態を見る
+   - タイムアウト（`src/app/api/ai/suggest/route.ts` の `GEMINI_TIMEOUT_MS`）とほぼ同じ → Gemini 側の遅さ。Gemini のステータスと、同じファイルにあるモデル名の状態を見る
    - 数百〜数千 ms → Gemini 以外の失敗。エラー本文（API キー・レスポンス形式・ネットワーク）を見る
    - 行が無い → 関数に届いていない。関数の起動の失敗やブラウザ側の fetch の問題を疑う（#40）
 3. 原因が分かったら GitHub Issue にして、このファイルを消す

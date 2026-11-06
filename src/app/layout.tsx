@@ -14,7 +14,6 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "食材管理",
-  description: "食材管理・レシピ提案PWA",
 };
 
 const isDemo = process.env.NEXT_PUBLIC_APP_ENV === 'demo';

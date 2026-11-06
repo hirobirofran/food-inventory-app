@@ -10,12 +10,7 @@
 
 ## 技術スタック
 
-- **フロントエンド**: Next.js 16 (App Router) + TypeScript + Tailwind CSS（正確な版は `package.json`）
-- **データ**: Google Sheets API（データベース代わり）
-- **認証**: Google ログイン（Auth.js `next-auth`。許可リストに入れた Google アカウントだけが使える。手順は `docs/SETUP.md` の 3 章）
-- **AI**: Gemini API `gemini-3.5-flash-lite`（`@google/genai`。レシピ提案と買い物リストの提案。レシート OCR は未実装）。他プロバイダへの切り替え案は `handoff/ideas/ai-provider-alternatives.md`
-- **デプロイ**: Vercel
-- **PWA**: 未設定（何が無いかと PWA 化の案は `docs/ARCHITECTURE.md` の技術スタック表）
+使っている技術と選んだ理由は `docs/ARCHITECTURE.md` の「技術スタック」、版は `package.json` を見る。
 
 ## 現在の状態
 
@@ -95,7 +90,7 @@ Issue を起票してから PR を作る。本文の書式は `.github/ISSUE_TEM
 | `docs/VISION.md`        | やりたいこと・ゴール・利用シーン             |
 | `docs/ARCHITECTURE.md`  | 技術選定の理由・データ設計・ディレクトリ構成 |
 | `docs/TASKS.md`         | タスク一覧・進捗・次にやること               |
-| `docs/KNOWLEDGE.md`     | 気づき・ハマりポイント・申し送り             |
+| `docs/KNOWLEDGE.md`     | 過去の気づき・ハマりポイント（日付ごとの記録） |
 | `docs/SETUP.md`         | 環境構築手順（Google Sheets・Gemini・Google ログイン等） |
 | `handoff/issues/i<N>/`  | Issue ごとの引き継ぎ（現状・失敗・再開手順）   |
 | `handoff/prs/pr<N>/`    | Issue の無い PR の引き継ぎ（同上）             |
@@ -103,9 +98,9 @@ Issue を起票してから PR を作る。本文の書式は `.github/ISSUE_TEM
 | `docs/adr/`             | 決定の記録（ADR。1 件 1 ファイル、索引は README） |
 | `docs/agents/`          | エージェント向けの読み方・Issue の扱い・ラベル      |
 
-## ユーザーの調理器具（AIレシピ提案時に必ず考慮）
+## ユーザーの調理器具
 
-オートクッカービストロ / ビストロレンジ / グルラボ → これらを活用した省力・時短レシピを優先して提案する
+アプリの AI がレシピを提案するときに使う器具の一覧と指示は、`src/app/api/ai/suggest/route.ts` のプロンプトにある。器具が変わったら、そこを直す。
 
 ## Agent skills
 

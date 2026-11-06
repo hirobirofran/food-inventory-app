@@ -1,4 +1,4 @@
-import { google } from 'googleapis';
+import { sheets as sheetsApi, auth as googleAuth } from '@googleapis/sheets';
 import { demoFoods } from './demoData';
 
 const SHEET_NAME = 'inventory';
@@ -36,11 +36,11 @@ async function main() {
     process.exit(1);
   }
 
-  const auth = new google.auth.GoogleAuth({
+  const auth = new googleAuth.GoogleAuth({
     credentials: { client_email: email, private_key: privateKey },
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   });
-  const sheets = google.sheets({ version: 'v4', auth });
+  const sheets = sheetsApi({ version: 'v4', auth });
 
   console.log(`Clearing demo sheet ${spreadsheetId}...`);
   await sheets.spreadsheets.values.clear({

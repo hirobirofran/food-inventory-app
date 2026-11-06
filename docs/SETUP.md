@@ -1,7 +1,7 @@
 ---
 title: 環境構築手順書
 description: 食材管理アプリを Google Cloud と Vercel で動かすための設定手順と、日々の運用
-updated: 2026-10-31
+updated: 2026-11-07
 ---
 
 # 環境構築手順書

@@ -4,7 +4,7 @@
 
 | ファイル | 一言 | 状態 |
 |---|---|---|
-| `launch-plan.md` | チーズ登録から始める実用化の残り 4 ステップ | Step 1 完了、Step 2 は途中、Step 4 は #19 で対応済み（順番は TASKS.md 優先） |
+| `launch-plan.md` | チーズ登録から始める実用化の残りステップ | Step 1 完了、Step 2 は PR #10 が残り、Step 3 は未着手（順番は TASKS.md 優先） |
 | `vertex-ai-keyless.md` | Vertex AI 経由にして特典クレジットを使う。WIF でキー無し | 未着手 |
 | `ai-provider-alternatives.md` | Gemini の無料枠が使えなくなった場合の代案（Claude へ移行、特典クレジットを使う） | 未着手 |
 | `receipt-ocr.md` | レシートを撮って一括登録。財布に Max 特典の Claude API クレジットを使う案 | 未着手 |

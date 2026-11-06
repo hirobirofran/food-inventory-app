@@ -1,7 +1,7 @@
 ---
-title: 食材管理アプリ（food-inventory-app）
-audience: このリポジトリを初めて開いた外部の人。アプリの中身も、このリポジトリの決まりも、まだ何も知らない。
-purpose: 初めて来た人が、最初にどの文書を読めばよいか（環境構築の手順）と、手元では画面が動かないことを先に知り、迷ったり時間を無駄にしたりしないようにするため。
+title: Food inventory app (food-inventory-app)
+audience: Anyone opening this repository for the first time, who knows nothing yet about the app or how this repository works.
+purpose: So that first-time visitors learn up front which document to read first (the setup guide) and that the app screens do not run locally, and do not get lost or waste time.
 updated: 2026-11-07
 ---
 

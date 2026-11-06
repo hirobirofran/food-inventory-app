@@ -1,7 +1,7 @@
 ---
 title: Food inventory app (food-inventory-app)
-audience: Anyone opening this repository for the first time, who knows nothing yet about the app or how this repository works.
-purpose: So that first-time visitors learn up front which document to read first (the setup guide) and that the app screens do not run locally, and do not get lost or waste time.
+audience: Anyone opening this repository for the first time. Assumes no knowledge of the app or of how this repository is run, and may not read Japanese.
+purpose: Most of the documentation in this repository is in Japanese under docs/. This README exists so that a first-time visitor knows where to go next, and does not waste time trying to run the app screens locally.
 updated: 2026-11-07
 ---
 

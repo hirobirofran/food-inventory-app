@@ -9,7 +9,7 @@
 ### 技術的な気づき
 
 - `create-next-app` はデフォルトで `master` ブランチを作るので `git branch -m master main` で変更が必要
-- Next.js 15 の App Router では `'use client'` ディレクティブが必要なコンポーネント（useState等を使う場合）を明示する
+- Next.js の App Router では `'use client'` ディレクティブが必要なコンポーネント（useState等を使う場合）を明示する
 - TypeScript の `as const` で union型の配列を作るとき、オブジェクトのプロパティが一部のオブジェクトにしかない場合は型エラーになる
   - 対策: すべてのオブジェクトに同じプロパティを持たせる（例: `badge: 0` でデフォルト値を設定）
 

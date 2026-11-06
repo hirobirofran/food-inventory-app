@@ -12,7 +12,7 @@
 ## Step 2 安定化（Claude Code、1〜2 セッション）
 - PR #10（開封日と開封後期限。Issue #9）を main へ
 - PR #10 の確認はデモ用プレビューで行う（`docs/SETUP.md` の 4 章「PR の確認手順」）
-- 完了条件: 本番で AI 提案が返る。チーズに開封日を入れると開封後期限で警告が出る
+- 完了条件: チーズに開封日を入れると開封後期限で警告が出る
 
 ## Step 3 PWA 化（Claude Code、1 セッション）
 - manifest、アイコン 2 サイズ、service worker。`next-pwa` は未使用のまま PR #52 で削除済みで、manifest もアイコンも無い。手段（手書きの manifest + Service Worker、または代替ライブラリ）は着手時に選ぶ

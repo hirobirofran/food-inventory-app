@@ -24,7 +24,7 @@
 | 言語 | TypeScript | 型安全性。食材データの構造を明確に保てる |
 | データ保存 | Google Sheets API | 既存Googleアカウントで使える。家族共有が簡単。バックアップ自動 |
 | 認証 | Auth.js (`next-auth`) + Google ログイン | 許可リスト（環境変数 `AUTH_ALLOWED_EMAILS`）に入れた Google アカウントだけが使える。手順は `docs/SETUP.md` の 3 章 |
-| AI | Gemini API (`gemini-3.5-flash-lite`、`@google/genai`) | 無料枠の範囲で運用できる。用途はレシピ提案・買い物リストの提案。レシート OCR は未実装（`handoff/ideas/receipt-ocr.md`） |
+| AI | Gemini API (`@google/genai`。モデル名は `src/app/api/ai/suggest/route.ts`) | 無料枠の範囲で運用できる。用途はレシピ提案・買い物リストの提案。レシート OCR は未実装（`handoff/ideas/receipt-ocr.md`） |
 | デプロイ | Vercel | Next.jsと相性最良。無料枠あり。スマホからもアクセス可 |
 | PWA | 未設定 | manifest・Service Worker・アイコンは無く、スマホはブラウザの「ホーム画面に追加」で開く。PWA 化の案は `handoff/ideas/launch-plan.md` の Step 3 |
 
@@ -64,7 +64,7 @@
 - 将来的にSupabase等へ移行することも可能
 
 ### なぜGeminiを使っているか
-- 無料枠の範囲で運用できる（実装は `@google/genai` と `gemini-3.5-flash-lite`。2026-10 に更新、Issue #31）
+- 無料枠の範囲で運用できる
 - 無料枠が使えなくなった場合の代案（Claude API への切り替えなど）は `handoff/ideas/ai-provider-alternatives.md`
 - モデル名は世代交代が早い（`docs/KNOWLEDGE.md`）
 

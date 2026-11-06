@@ -23,6 +23,6 @@ decided_by: オーナー
 ## 関連
 
 - `docs/agents/domain.md`（ADR の運用）
-- Issue #102 / PR #<この PR>（この ADR と、7 本へのフロントマターの追加）
+- Issue #102 / PR #104（この ADR と、7 本へのフロントマターの追加）
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

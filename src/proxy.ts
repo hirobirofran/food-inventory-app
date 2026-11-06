@@ -18,5 +18,8 @@ export const proxy = auth((req) => {
 });
 
 export const config = {
+  // ログインの確認から外すもの: Next.js の静的ファイル、favicon、Auth.js のエンドポイント。
+  // manifest と icon- で始まるアイコンは、PWA 化（handoff/ideas/launch-plan.md の Step 3）で置くファイル用に先に外してある。
+  // ホーム画面に追加するとき、ブラウザはログイン前にこれらを取りに来るため
   matcher: ['/((?!_next/|favicon.ico|icon-|manifest|api/auth/).*)'],
 };

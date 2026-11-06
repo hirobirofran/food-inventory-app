@@ -3,7 +3,7 @@
 状態: 未着手（2026-10-10 にオーナーが希望）
 
 ## 背景
-- レシート撮影からの自動登録は、もともと計画済み（`docs/VISION.md` の 22 行目・37 行目、`docs/TASKS.md` の 50 行目・56 行目）
+- レシート撮影からの自動登録は、もともと計画済み（`docs/VISION.md` の「あると嬉しい」と「利用シーン」、`docs/TASKS.md` の「Phase 2」）
 - 新しく分かったのは「どの財布で AI を呼ぶか」。オーナーは Claude の Max 5x プランを契約しており、毎月 Claude API クレジットが付く
 - 現状の AI は Gemini（AI Studio の無料枠キー）。Google 側のクレジットを使う案は `vertex-ai-keyless.md`
 

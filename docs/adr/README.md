@@ -7,12 +7,12 @@ updated: 2026-11-07
 
 # ADR（決定の記録）
 
-1 件 1 ファイル（`0001-slug.md` のように連番）。「何を決めたか、なぜか」を残す。書式は `/domain-modeling` の ADR 形式（1〜3 文で足りる。考えた選択肢・影響は必要なときだけ）。ただしこのリポジトリでは frontmatter の `status` と `## 出典` 節を必須にする。読み方と運用は `docs/agents/domain.md`。
+1 件 1 ファイル（`0001-slug.md` のように連番）。「何を決めたか、なぜか」を残す。書式は `/domain-modeling` の ADR 形式（1〜3 文で足りる。考えた選択肢・影響は必要なときだけ）。ただしこのリポジトリでは、各 ADR のフロントマター（ファイル先頭の `---` で囲んだ項目欄）の `status` と、本文の後の `## 出典` 節を必須にする。読み方と運用は `docs/agents/domain.md`。
 
 | 番号 | 題名 | status |
 | --- | --- | --- |
 | 0001 | [依存パッケージの更新は、マイナー・パッチなら CI 通過でマージし、むやみに最新にしない](0001-dependency-update-policy.md) | accepted |
 | 0002 | [記録の置き場と更新の仕方: 引き継ぎは handoff/ に ok の後で main 直、決定は ADR に Issue と PR で](0002-record-locations-and-updates.md) | accepted |
-| 0003 | [人が読むための文書には、title・audience・purpose・updated のフロントマターを付ける](0003-docs-frontmatter.md) | proposed |
+| 0003 | [人が読むために書いた文書には、title・audience・purpose・updated のフロントマターを付ける](0003-docs-frontmatter.md) | proposed |
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

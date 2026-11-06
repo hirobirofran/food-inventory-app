@@ -8,7 +8,7 @@ updated: 2026-10-31
 
 ## 前提
 
-- Node.js 24（24.15 以上）がインストール済み。`.nvmrc` と package.json の `engines.node` は 24 系を指定している。24.15 以上が要るのは、テストで使う jsdom が求めるため
+- Node.js がインストール済み。版は `.nvmrc` を見る（CI も同じファイルで版を決める）。その系列の新しい版を使う。古い版では、テストで使う jsdom が動かないことがある（jsdom が求める版は `node_modules/jsdom/package.json` の `engines`）
 - Git がインストール済み
 - Google アカウントを持っている
 - Vercel に本番とデモの 2 つのプロジェクトがあり、どちらも GitHub のこのリポジトリを取り込んでいる。作るときは、Vercel ダッシュボードでこのリポジトリを 2 回取り込み、名前を分ける（[Vercel: Deploying Git Repositories](https://vercel.com/docs/git)）。2 つの違いは 4 章「環境の定義」

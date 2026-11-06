@@ -15,13 +15,15 @@
 
 ## 技術スタック
 
+版は `package.json`（Node.js は `.nvmrc`）を見る。
+
 | 役割 | 技術 | 理由 |
 |------|------|------|
-| フロントエンド | Next.js 16 (App Router。正確な版は `package.json`) | SSR/CSRの柔軟性、API Routesでバックエンドも一体化 |
+| フロントエンド | Next.js (App Router) | SSR/CSRの柔軟性、API Routesでバックエンドも一体化 |
 | スタイル | Tailwind CSS | モバイルファーストのUI構築が速い |
 | 言語 | TypeScript | 型安全性。食材データの構造を明確に保てる |
 | データ保存 | Google Sheets API | 既存Googleアカウントで使える。家族共有が簡単。バックアップ自動 |
-| 認証 | Auth.js (`next-auth` v5) + Google ログイン | 許可リスト（環境変数 `AUTH_ALLOWED_EMAILS`）に入れた Google アカウントだけが使える。手順は `docs/SETUP.md` の 3 章 |
+| 認証 | Auth.js (`next-auth`) + Google ログイン | 許可リスト（環境変数 `AUTH_ALLOWED_EMAILS`）に入れた Google アカウントだけが使える。手順は `docs/SETUP.md` の 3 章 |
 | AI | Gemini API (`gemini-3.5-flash-lite`、`@google/genai`) | 無料枠の範囲で運用できる。用途はレシピ提案・買い物リストの提案。レシート OCR は未実装（`handoff/ideas/receipt-ocr.md`） |
 | デプロイ | Vercel | Next.jsと相性最良。無料枠あり。スマホからもアクセス可 |
 | PWA | 未設定 | manifest・Service Worker・アイコンは無く、スマホはブラウザの「ホーム画面に追加」で開く。PWA 化の案は `handoff/ideas/launch-plan.md` の Step 3 |

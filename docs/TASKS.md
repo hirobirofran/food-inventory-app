@@ -12,7 +12,7 @@
 
 ### ✅ 完了
 
-- [x] Next.js 15 プロジェクト初期セットアップ（TypeScript + Tailwind CSS + PWA）
+- [x] Next.js 15 プロジェクト初期セットアップ（TypeScript + Tailwind CSS + PWA）。現在は Next.js 16 で、PWA は未設定（#19）
 - [x] 食材の型定義 (`src/types/food.ts`)
 - [x] 開発用モックデータ (`src/lib/mockData.ts`)
 - [x] 食材一覧UI（検索・場所フィルター・賞味期限色分け）

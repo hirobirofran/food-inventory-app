@@ -1,9 +1,10 @@
 ---
-title: Food inventory app (food-inventory-app)
 audience: Anyone opening this repository for the first time. Assumes no knowledge of the app or of how this repository is run, and may not read Japanese.
-purpose: Most of the documentation in this repository is in Japanese under docs/. This README exists so that a first-time visitor knows where to go next, and does not waste time trying to run the app screens locally.
+purpose: Most of the documentation in this repository is in Japanese under docs/, so this README exists to tell a first-time visitor where to go next and to save them from trying to run the app screens locally.
 updated: 2026-11-07
 ---
+
+# Food inventory app
 
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 

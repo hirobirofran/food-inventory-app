@@ -1,5 +1,4 @@
 ---
-title: ADR（決定の記録）
 audience: このリポジトリの決まりや進め方が、なぜ今の形なのかを知りたい人と、新しく ADR を書く人。開発が Issue と PR で進むことは知っている。
 purpose: 一度決めたこととその理由をあとから探せるようにして、決まったことを知らずに覆したり、同じ議論をやり直したりしないため。
 updated: 2026-11-07
@@ -13,6 +12,6 @@ updated: 2026-11-07
 | --- | --- | --- |
 | 0001 | [依存パッケージの更新は、マイナー・パッチなら CI 通過でマージし、むやみに最新にしない](0001-dependency-update-policy.md) | accepted |
 | 0002 | [記録の置き場と更新の仕方: 引き継ぎは handoff/ に ok の後で main 直、決定は ADR に Issue と PR で](0002-record-locations-and-updates.md) | accepted |
-| 0003 | [人が読むために書いた文書には、title・audience・purpose・updated のフロントマターを付ける](0003-docs-frontmatter.md) | proposed |
+| 0003 | [人が読むために書いた文書には、audience・purpose・updated のフロントマターを付ける](0003-docs-frontmatter.md) | proposed |
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

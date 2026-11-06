@@ -10,12 +10,7 @@
 
 ## 技術スタック
 
-- **フロントエンド**: Next.js 16 (App Router) + TypeScript + Tailwind CSS（正確な版は `package.json`）
-- **データ**: Google Sheets API（データベース代わり）
-- **認証**: Google ログイン（Auth.js `next-auth`。許可リストに入れた Google アカウントだけが使える。手順は `docs/SETUP.md` の 3 章）
-- **AI**: Gemini API `gemini-3.5-flash-lite`（`@google/genai`。レシピ提案と買い物リストの提案。レシート OCR は未実装）。他プロバイダへの切り替え案は `handoff/ideas/ai-provider-alternatives.md`
-- **デプロイ**: Vercel
-- **PWA**: 未設定（何が無いかと PWA 化の案は `docs/ARCHITECTURE.md` の技術スタック表）
+使っている技術と選んだ理由は `docs/ARCHITECTURE.md` の「技術スタック」、版は `package.json` を見る。
 
 ## 現在の状態
 

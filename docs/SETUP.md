@@ -301,7 +301,7 @@ npm test      # vitest を一度だけ実行（CI と同じ）
 npx vitest    # 変更を監視して再実行
 ```
 
-- テストは、対象のファイルの隣に `*.test.ts`（コンポーネントは `*.test.tsx`）で置く。テストとして拾う範囲は `vitest.config.mts` の `include`。特に指定しなければ Node 環境で動く。例: `src/lib/format.test.ts`、`src/types/food.test.ts`、`src/proxy.test.ts`
+- テストは、対象のファイルの隣に `*.test.ts` / `*.test.tsx` で置く。テストとして拾う範囲は `vitest.config.mts` の `include`。特に指定しなければ Node 環境で動く。例: `src/lib/format.test.ts`、`src/types/food.test.ts`、`src/proxy.test.ts`
 - コンポーネントのテストは `src/components/*.test.tsx`。先頭に `// @vitest-environment jsdom` を書くと jsdom に描画して操作できる（`@testing-library/react`）。例: `src/components/FoodFormModal.test.tsx`
 - API ルートのテストは `src/app/api/**/route.test.ts`（Node 環境）。外部 SDK は `vi.mock` で差し替え、参照する `vi.fn()` は `vi.hoisted` で先に作る。時間に依存する処理は `vi.useFakeTimers()` と `vi.advanceTimersByTimeAsync()` で進める。例: `src/app/api/ai/suggest/route.test.ts`
 - 各テスト後の DOM の片付けは `vitest.setup.ts` が行い、`vi.spyOn` のモックは `restoreMocks: true` で自動復元される（`vi.fn()` に与えた実装は戻らないので `beforeEach` で `mockReset()` する）。設定は `vitest.config.mts`

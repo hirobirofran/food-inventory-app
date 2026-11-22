@@ -305,20 +305,21 @@ ensure_sa "$APPLY_SA_NAME" "$APPLY_SA" "Terraform apply"
 # get_bound <project|sa|bucket> <対象> <メンバー> <ロール>  ... 付いていれば、そのロールを出す
 get_bound() {
   local kind="$1" target="$2" member="$3" role="$4"
-  # gcloud の --filter は大文字と小文字を区別しないため、ロールで絞ったメンバーの一覧を取り、
-  # 大文字と小文字を区別した完全一致（grep -Fx）で比べる。
+  # ポリシー全体を「ロール・メンバー・条件」の 1 行ずつで取り、ロールの絞り込みも比較も手元で行う。
+  # gcloud storage buckets get-iam-policy は --filter を受け付けないため、3 種とも同じ形にそろえる。
+  # メンバーは大文字と小文字を区別した完全一致（grep -Fx）で比べる。
   # 条件付きの付与（期限付きなど）は、このスクリプトが付ける条件なしの付与とは別物なので数えない。
-  # 2 列目（条件）が空の行だけを残す
-  local filter="bindings.role=\"$role\"" format='value(bindings.members,bindings.condition)' rows
+  # 3 列目（条件）が空の行だけを残す
+  local format='value(bindings.role,bindings.members,bindings.condition)' rows
   case "$kind" in
     project) rows="$(gcloud projects get-iam-policy "$target" --flatten='bindings[].members' \
-               --filter="$filter" --format="$format")" || return 1 ;;
+               --format="$format")" || return 1 ;;
     sa)      rows="$(gcloud iam service-accounts get-iam-policy "$target" --project "$GCP_PROJECT_ID" \
-               --flatten='bindings[].members' --filter="$filter" --format="$format")" || return 1 ;;
+               --flatten='bindings[].members' --format="$format")" || return 1 ;;
     bucket)  rows="$(gcloud storage buckets get-iam-policy "gs://$target" --flatten='bindings[].members' \
-               --filter="$filter" --format="$format")" || return 1 ;;
+               --format="$format")" || return 1 ;;
   esac
-  if awk -F'\t' '$2 == "" { print $1 }' <<<"$rows" | grep -Fxq -- "$member"; then printf '%s\n' "$role"; fi
+  if awk -F'\t' -v r="$role" '$1 == r && $3 == "" { print $2 }' <<<"$rows" | grep -Fxq -- "$member"; then printf '%s\n' "$role"; fi
   return 0
 }
 

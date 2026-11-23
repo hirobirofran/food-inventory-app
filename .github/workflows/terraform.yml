@@ -100,7 +100,7 @@ jobs:
           log="$RUNNER_TEMP/terraform.txt"
           # PR の plan は state のロックを取らない。plan 用 SA は state を読むだけ（docs/SETUP.md の 6-5）
           if terraform plan -no-color -lock=false -out=tfplan >>"$log" 2>&1 \
-            && terraform show -json tfplan 2>>"$log" | jq -r -f plan-summary.jq; then
+            && terraform show -json tfplan 2>>"$log" | jq -r -f plan-summary.jq 2>>"$log"; then
             echo "plan: 成功"
           else
             echo "plan: 失敗（全文は下の「全文を上げる」の置き場所）"
@@ -166,7 +166,7 @@ jobs:
           log="$RUNNER_TEMP/terraform.txt"
           # apply の直前にもう一度 plan し、その要約を出してから、同じ plan をそのまま apply する
           if terraform plan -no-color -out=tfplan >>"$log" 2>&1 \
-            && terraform show -json tfplan 2>>"$log" | jq -r -f plan-summary.jq; then
+            && terraform show -json tfplan 2>>"$log" | jq -r -f plan-summary.jq 2>>"$log"; then
             echo "plan: 成功"
           else
             echo "plan: 失敗（全文は下の「全文を上げる」の置き場所）"

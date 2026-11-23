@@ -1,6 +1,7 @@
 # Terraform 本体と google プロバイダの版、state の置き場所。
 # 版は公開から 7 日以上たったものを選び、完全一致で固定する（docs/adr/0001-dependency-update-policy.md）。
-# 本体の版は、ここにだけ書く。ワークフロー（.github/workflows/terraform-plan.yml と terraform-apply.yml）は、required_version から版を読む。
+# 本体の版をここにだけ書くのは、ワークフローにも書くと、片方だけ直したときに required_version と合わず、init が失敗するため。
+# "= x.y.z" の形を変える（"~> 1.17" など）と、ワークフロー（terraform-plan.yml と terraform-apply.yml）が版を読めずに止まる。
 terraform {
   required_version = "= 1.17.2"
 

@@ -25,6 +25,7 @@
 - `docs/` フォルダに詳細ドキュメントがある（人間向け）
 - `docs/` とルートの `README.md` の本文を変えたら、フロントマターの `updated` をその日（日本時間）に書き換える（`docs/adr/0004-docs-frontmatter.md`）
 - コードのコメントには、なぜその処理なのかを書く（`docs/adr/0005-code-comments-explain-why.md`）
+- ドキュメント（コードコメント含む）に、コードにある定義値を極力書かない（`docs/adr/0006-no-code-values-in-docs.md`）
 - 各セッション終了時に `docs/TASKS.md` を更新し、引き継ぎ情報は `handoff/` に書く（下記）。`docs/KNOWLEDGE.md` へのログ的な追記はしない
 
 ### 引き継ぎ情報の置き場所（`handoff/`）

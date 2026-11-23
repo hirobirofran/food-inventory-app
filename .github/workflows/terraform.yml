@@ -77,6 +77,14 @@ jobs:
       - name: fmt
         run: terraform fmt -check -recursive -no-color
 
+      # プロジェクト番号だけを値に持つ Secret は無いので、WIF のプロバイダの名前
+      # （projects/<番号>/locations/...）から取り出して伏せ字にする。auth が失敗したときの
+      # エラーに、プールの名前などの形で番号が出ても *** になるように
+      - name: プロジェクト番号を伏せる
+        env:
+          WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
+        run: echo "::add-mask::$(cut -d/ -f2 <<<"$WIF_PROVIDER")"
+
       - id: auth
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
@@ -147,6 +155,14 @@ jobs:
         with:
           terraform_version: 1.17.2
           terraform_wrapper: false
+
+      # プロジェクト番号だけを値に持つ Secret は無いので、WIF のプロバイダの名前
+      # （projects/<番号>/locations/...）から取り出して伏せ字にする。auth が失敗したときの
+      # エラーに、プールの名前などの形で番号が出ても *** になるように
+      - name: プロジェクト番号を伏せる
+        env:
+          WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
+        run: echo "::add-mask::$(cut -d/ -f2 <<<"$WIF_PROVIDER")"
 
       - id: auth
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0

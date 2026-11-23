@@ -31,11 +31,6 @@ permissions:
   # WIF で GCP に入るときに使う、GitHub の OIDC トークン
   id-token: write
 
-# plan と apply を同じグループで 1 本ずつ走らせる（apply の途中の state を plan が読まないように）
-concurrency:
-  group: terraform
-  cancel-in-progress: false
-
 env:
   TF_IN_AUTOMATION: 'true'
   TF_INPUT: 'false'
@@ -47,11 +42,19 @@ env:
 
 jobs:
   plan:
-    # Dependabot が起こした実行には通常の Secrets が渡らず plan が失敗するので、自動では動かさない。
-    # 代わりに、上の workflow_dispatch で人が動かす
+    # Dependabot が起こした実行と、フォークからの PR には通常の Secrets が渡らず plan が失敗するので、
+    # 自動では動かさない。Dependabot の PR は、上の workflow_dispatch で人が動かす
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]')
+      (github.event_name == 'pull_request'
+        && github.actor != 'dependabot[bot]'
+        && github.event.pull_request.head.repo.full_name == github.repository)
+    # plan と apply を同じグループで 1 本ずつ走らせる（apply の途中の state を plan が読まないように）。
+    # ワークフロー全体ではなくジョブに書く。全体に書くと、ジョブが動かない実行（Dependabot の PR など）も
+    # グループに入り、待っている apply を取り消しうるため（docs/SETUP.md の 7-1）
+    concurrency:
+      group: terraform
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -120,6 +123,10 @@ jobs:
 
   apply:
     if: github.event_name == 'push'
+    # plan のジョブと同じグループ（上の plan のジョブのコメント）
+    concurrency:
+      group: terraform
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     # オーナーが承認してから動く。名前は大文字と小文字も同じにする（違うと apply 用 SA を借りられない）
     environment: terraform-apply

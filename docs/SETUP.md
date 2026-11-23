@@ -321,7 +321,7 @@ apply の流れ（ワークフローの動きは 7 章）: PR を main にマー
 
 - API の有効化（`iamcredentials`、`sts`。ほかに、スクリプト自身が使う `iam`、`cloudresourcemanager`、`storage`）
 - state を置くバケット（バージョニング〔上書きや削除の前の版をバケットに残す設定〕あり、公開を防ぐ設定）
-- Actions のログを置くバケット（30 日で自動削除、公開を防ぐ設定）。plan 用 SA と apply 用 SA ができるのは、ファイルを作ることと、ファイルの一覧を見ることだけ。中身を読む・上書きする・消すことはできない（下の「ログのバケットの権限」）。state のバケットとは別にする。plan はどのブランチからも動くので、同じバケットだとログを書く権限が state にも届くため
+- Actions のログを置くバケット（30 日で自動削除、公開を防ぐ設定）。plan 用 SA と apply 用 SA は、ファイルを作れるが、中身を読む・上書きする・消すことはできない（下の「ログのバケットの権限」）。state のバケットとは別にする。plan はどのブランチからも動くので、同じバケットだとログを書く権限が state にも届くため
 - GitHub 用の WIF のプールとプロバイダ（名前はどちらも `github`）。このリポジトリのトークンだけを通す。リポジトリは名前ではなく番号（下の「リポジトリの番号で絞る理由」）で見分ける。プロバイダの説明（Cloud Console に出る）には `GitHub Actions: <オーナー>/<リポジトリ名>` を入れる
 - plan 用 SA（`tf-plan`）と apply 用 SA（`tf-apply`）。plan 用はこのリポジトリ（番号で見分ける）のどのブランチからでも借りられ、apply 用は Environment `terraform-apply` を通ったジョブからだけ借りられる。どちらの SA も、借りられるのは決めた 1 つの相手だけで、スクリプトはそれ以外の借りる許可（`roles/iam.workloadIdentityUser`）があれば外す
 - Terraform の最初の state（state のバケットの `gcp/default.tfstate`）。無いときだけ、Terraform 自身に作らせ、plan で「変更なし」になることを確かめる（下の 6-5）
@@ -334,9 +334,17 @@ apply の流れ（ワークフローの動きは 7 章）: PR を main にマー
 ログのバケットの権限: plan 用 SA と apply 用 SA には、ログのバケットにだけ、次の 2 つのロールを付ける。プロジェクトには付けない。
 
 - `roles/storage.objectCreator`: ファイルを作る（`storage.objects.create`）。上書きと削除はできない
-- `roles/storage.legacyBucketReader`: ファイルの一覧を見る（`storage.objects.list`）。中身を読む権限（`storage.objects.get`）は含まない
+- `roles/storage.legacyBucketReader`: ファイルの一覧を見る（`storage.objects.list`）。バケットの設定を読む権限（`storage.buckets.get`）と、フォルダなどの一覧の権限も含む。ファイルの中身を読む権限（`storage.objects.get`）は含まない
 
-一覧の権限が要るのは、ワークフローが使う `gcloud storage cp` が、置く前に同じ名前のファイルを読みに行くため。このとき `storage.objects.get` か `storage.objects.list` のどちらかが要る。作る権限だけでは、ここで拒否されてアップロードが失敗する（Issue #84 で、Cloud Storage の監査ログで確かめた）。中身を読めない一覧の権限で足りることは、一覧の権限だけでアップロードに成功していた plan 用 SA の実行で確かめた。2 つのロールに含まれる権限は、`gcloud iam roles describe <ロール>` で見られる（2026-11-24 に確認）。
+一覧の権限が要るのは、ワークフローが使う `gcloud storage cp` が、置く前に同じ名前のファイルを確かめるため。
+作る権限だけでは、この確かめで拒否され、アップロードが失敗する。
+一覧の権限があれば、中身を読む権限が無くてもアップロードできる（確かめた範囲は下の出典）。
+
+出典:
+
+- 拒否されたこと: [Issue #84 のコメント](https://github.com/hirobirofran/food-inventory-app/issues/84#issuecomment-7104795552)。Cloud Storage の監査ログで、拒否の判定に `storage.objects.get` と `storage.objects.list` が使われていた
+- 一覧の権限で足りること: plan 用 SA は、一覧の権限だけでアップロードに成功していた（[Issue #84 のコメント](https://github.com/hirobirofran/food-inventory-app/issues/84#issuecomment-7105013588)）。apply 用 SA（ログのバケットにこの 2 つのロールだけを持つ）でも成功するかは、このスクリプトを動かした後の apply で確かめる〈確かめてから、結果のコメントへのリンクを入れる〉
+- ロールに含まれる権限: [IAM roles for Cloud Storage](https://docs.cloud.google.com/storage/docs/access-control/iam-roles)（2026-11-24 に確認）。`gcloud iam roles describe <ロール>` でも見られる
 
 スクリプトは、GitHub が Actions に渡すトークンの `sub`（ジョブの出どころを表す値。apply のジョブなら `repo:<オーナー>/<リポジトリ名>:environment:terraform-apply`）が既定の形であることを前提にしている。リポジトリの設定で `sub` の形を変えていると、apply 用 SA を借りられないので、スクリプトは最初に止まる。
 

@@ -5,7 +5,7 @@
 # 作る物（無ければ作り、あれば望む設定に更新する。何度動かしても同じ結果になる）:
 #   - API の有効化
 #   - Terraform の state を置くバケット（バージョニングあり）
-#   - Actions のログを置くバケット（30 日で自動削除。plan 用・apply 用の SA ができるのは、ファイルを作ることと一覧することだけ）
+#   - Actions のログを置くバケット（30 日で自動削除。plan 用・apply 用の SA は、中身を読む・上書きする・消すことはできない）
 #   - GitHub 用の Workload Identity Federation（WIF）のプールとプロバイダ
 #   - plan 用と apply 用のサービスアカウント（SA）と、その権限
 #   - Terraform の最初の state（無いときだけ。Docker の Terraform に作らせ、plan で「変更なし」を確かめる）
@@ -404,9 +404,10 @@ keep_only_borrower "$APPLY_SA" "$APPLY_PRINCIPAL"
 bind_role bucket "$TF_STATE_BUCKET" "serviceAccount:${PLAN_SA}" roles/storage.objectViewer
 bind_role bucket "$TF_STATE_BUCKET" "serviceAccount:${APPLY_SA}" roles/storage.objectAdmin
 
-# ログのバケット: どちらも、ファイルを作る権限と、一覧する権限だけ（中身を読む・上書き・削除はできない）。
-# ワークフローが使う gcloud storage cp は、置く前に同じ名前のファイルを読みに行き、
-# storage.objects.get か storage.objects.list が要る。中身を読めない一覧の権限（legacyBucketReader）で足りる。
+# ログのバケット: どちらも、ファイルを作るロールと、一覧を見るロールを付ける（中身を読む・上書き・削除はできない）。
+# ワークフローが使う gcloud storage cp は、置く前に同じ名前のファイルを確かめるので、
+# storage.objects.get か storage.objects.list が要る。legacyBucketReader は storage.objects.list を含み、
+# storage.objects.get を含まない（含む権限の一覧と根拠は docs/SETUP.md の 6 章）。
 # どちらもこのバケットにだけ付け、プロジェクトには付けない
 bind_role bucket "$LOG_BUCKET" "serviceAccount:${PLAN_SA}" roles/storage.objectCreator
 bind_role bucket "$LOG_BUCKET" "serviceAccount:${APPLY_SA}" roles/storage.objectCreator

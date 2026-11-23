@@ -456,6 +456,11 @@ GCP の設定は `infra/terraform/` に書く。plan と apply は、GitHub Acti
 
 - 変更のレビューは、PR の plan の要約で行う。承認の後の apply のジョブは、直前にもう一度 plan して、その結果をそのまま apply する
 - `terraform-apply.yml` だけを変えたときも、main に入った後に apply が動く。apply の手順の変更を、すぐ一度動かして確かめるため。このときも承認が要る
+- Dependabot が GitHub Actions の部品の版を上げる PR は、`terraform-apply.yml` も書き換えることがある。そのときは、マージすると apply が承認待ちになる
+  - Dependabot は、毎週月曜に新しい版を確かめて PR を作る。`terraform-apply.yml` で使う部品の版が上がると、このファイルも書き換える
+  - この apply は `infra/terraform/` を変えないので、変更は 0 件になり、GCP の中身は変わらない（GCP を画面などで手で変えていたときは、それを戻す変更が出る）
+  - この apply は、新しい版の部品が apply で動くかを確かめるためのもの
+  - 承認しないまま置くと、後から main に入った apply は、その後ろに並んで待つ。不要なら却下（Reject）してよい
 - Dependabot が起こした PR と、フォークからの PR では、plan を自動では動かさない。どちらの実行にも通常の Secrets が渡らず、必ず失敗するため。Dependabot の PR が `infra/terraform/` か `terraform-plan.yml` に関わるときは、そのブランチを指定して手で実行する（人が起こした実行には Secrets が渡る）。Dependabot が起こした実行を「Re-run」しても、plan は動かない（Re-run でも、最初に起こしたのは Dependabot のままのため）。Dependabot のブランチ名は長いことがあり、手動の実行では `sub` が 127 文字を超えて GCP に入れないことがある（6 章）。そのときは、短い名前のブランチに同じコミットを push し、そのブランチを指定して動かす
 - 外部の人（このリポジトリのオーナーや共同作業者でない人）のフォークからの PR では、リポジトリの管理者が PR の画面で承認するまで、ワークフローそのものが動かない（6 章のスクリプトが入れる設定。`ci.yml` の lint やテストも、承認するまで動かない）。今のワークフローは、フォークからの PR に Secrets を渡さず、GCP にも入らないので、承認しても GCP の権限は渡らない。この設定は、将来ワークフローを書き間違えて、フォークからの PR に Secrets が渡るようになったときの最後の守りにする。承認する前に、その PR が `.github/workflows/` を変えていないかを確かめる。画面で設定を変えても、スクリプトを動かし直すとこの設定に戻る
 - plan と apply は、別々の concurrency グループ（GitHub Actions で、同じグループの実行を同時に走らせない設定）で動く。そのため plan は、別の PR の plan にも、承認待ちの apply にも待たされない

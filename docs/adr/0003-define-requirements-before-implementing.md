@@ -1,6 +1,7 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-23
+decided_by: オーナー
 ---
 
 # Issue は起票時の要求として扱い、着手時に要件を定義してから実装する
@@ -102,8 +103,8 @@ PR #112 のマージ後に、オーナーが問題を指摘した。
    決め 1 の前半（Issue は要求）は出典 3、決め 2〜4 は出典 4 の要件に沿う。
    「オーナーの決定」の確かめ方（決め 1 の後半）と決め 5 は、要件に無い Claude Code の提案。
    オーナーは 13:04Z と 13:18Z に、この本文で PR を直すことに ok した（同じチャット）。
-   status は決めていない。
 6. PR #112 の `/code-review` の[指摘](https://github.com/hirobirofran/food-inventory-app/pull/112#discussion_r4665470442)と、その[返信](https://github.com/hirobirofran/food-inventory-app/pull/112#discussion_r4665521395)。
+7. 2026-11-23 13:23Z、オーナー、同じチャット。この ADR を accepted にすると決定。
 
 ## 関連
 

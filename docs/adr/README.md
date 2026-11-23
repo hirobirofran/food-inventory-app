@@ -1,7 +1,7 @@
 ---
 audience: このリポジトリの決まりや進め方が、なぜ今の形なのかを知りたい人と、新しく ADR を書く人。開発が Issue と PR で進むことは知っている。
 purpose: 一度決めたこととその理由をあとから探せるようにして、決まったことを知らずに覆したり、同じ議論をやり直したりしないため。
-updated: 2026-11-23
+updated: 2026-11-24
 ---
 
 # ADR（決定の記録）
@@ -14,5 +14,6 @@ updated: 2026-11-23
 | 0002 | [記録の置き場と更新の仕方: 引き継ぎは handoff/ に ok の後で main 直、決定は ADR に Issue と PR で](0002-record-locations-and-updates.md) | accepted |
 | 0003 | [Issue は起票時の要求として扱い、着手時に要件を定義してから実装する](0003-define-requirements-before-implementing.md) | accepted |
 | 0004 | [人が読むために書いた文書には、audience・purpose・updated のフロントマターを付ける](0004-docs-frontmatter.md) | accepted |
+| 0007 | [ドキュメントとコードコメントには版数や値を書かず、実物を指す](0007-point-to-source-not-values.md) | accepted |
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

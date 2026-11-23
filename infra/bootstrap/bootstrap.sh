@@ -404,11 +404,14 @@ keep_only_borrower "$APPLY_SA" "$APPLY_PRINCIPAL"
 bind_role bucket "$TF_STATE_BUCKET" "serviceAccount:${PLAN_SA}" roles/storage.objectViewer
 bind_role bucket "$TF_STATE_BUCKET" "serviceAccount:${APPLY_SA}" roles/storage.objectAdmin
 
-# ログのバケット: どちらも、ファイルを作るロールと、一覧を見るロールを付ける（中身を読む・上書き・削除はできない）。
-# ワークフローが使う gcloud storage cp は、置く前に同じ名前のファイルを確かめるので、
-# storage.objects.get か storage.objects.list が要る。legacyBucketReader は storage.objects.list を含み、
-# storage.objects.get を含まない（含む権限の一覧と根拠は docs/SETUP.md の 6 章）。
-# どちらもこのバケットにだけ付け、プロジェクトには付けない
+# ログのバケットで中身を読む権限を付けないのは、plan 用 SA がどのブランチからも借りられ、
+# 読めると、過去の全文（識別子を含む）を公開のログに出せてしまうため。
+# 上書きと削除の権限を付けないのは、apply の記録を書き換えたり消したりできないようにするため。
+# legacyBucketReader を足すのは、gcloud storage cp が置く前に同じ名前のファイルを確かめ、
+# storage.objects.get か storage.objects.list が要るため。
+# objectViewer ではなく legacyBucketReader にするのは、storage.objects.list を含み、中身を読む storage.objects.get を含まないため
+# （含む権限の一覧と根拠は docs/SETUP.md の 6 章）。
+# プロジェクトではなくこのバケットに付けるのは、プロジェクトに付けると、state のバケットを含むすべてのバケットに届くため
 bind_role bucket "$LOG_BUCKET" "serviceAccount:${PLAN_SA}" roles/storage.objectCreator
 bind_role bucket "$LOG_BUCKET" "serviceAccount:${APPLY_SA}" roles/storage.objectCreator
 bind_role bucket "$LOG_BUCKET" "serviceAccount:${PLAN_SA}" roles/storage.legacyBucketReader
@@ -557,8 +560,9 @@ fi
 #    管理者が承認するまでワークフローを動かさない（画面では Settings → Actions → General の
 #    「Require approval for all external contributors」）。今のワークフローは、フォークからの PR に
 #    Secrets も GCP の権限も渡さない。これは、ワークフローを書き間違えて渡るようになったときの最後の守り。
-#    値が違うときだけ PUT し、PUT が成功したら変わったとみなす（上の Environment と同じ）。
-#    変えた直後に読むと古い値が返ることがあるので、読み直さない。確かめは、次に動かしたときの最初の読み出しで行う。
+#    PUT の後に読み直さないのは、変えた直後の読み出しが古い値を返すことがあり、その値で止めると、
+#    設定は変わっているのにスクリプトが止まるため。
+#    変わったかは、次に動かしたときにこの節が「そのまま」と出るかで、人が確かめる（また「更新した」と出たら、前の PUT では変わっていない）。
 # ---------------------------------------------------------------------
 FORK_APPROVAL_API="repos/${GITHUB_REPO}/actions/permissions/fork-pr-contributor-approval"
 FORK_APPROVAL_POLICY="all_external_contributors"

@@ -25,7 +25,7 @@ date: 2026-11-24
 
     # apply の直前にもう一度 plan し、その要約を出してから、同じ plan をそのまま apply する
 
-良い例（同じ箇所を書き直したもの。`.github/workflows/terraform-apply.yml`）:
+良い例（同じ箇所を書き直したもの。コミット 68dc0d6 の `.github/workflows/terraform-apply.yml`）:
 
     # 承認の後に plan し直すのは、PR の plan の結果ファイルが Terraform の値をすべて含み、公開リポジトリの成果物に残せず、持ち越せないため。
 

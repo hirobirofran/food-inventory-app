@@ -467,7 +467,7 @@ GCP の設定は `infra/terraform/` に書き、`.github/workflows/terraform.yml
 
 ### 7-4. Claude Code が apply を承認しないようにする設定
 
-このリポジトリで使う Claude Code（AI のコーディング支援ツール）は、オーナーと同じ gh のログインで動く。GitHub の API には、画面の「Approve and deploy」と同じことをする API と、Environment の承認者を変えたり Environment を消したりする API がある。Environment を消すと、次の apply のジョブは承認なしで進む（ワークフローが名前で参照すると、GitHub は保護の規則の無い Environment を作り直すため）。Claude Code が誤ってこれらを呼ばないように、`.claude/settings.json` の `permissions.deny` で、次のどれかを含む `gh` のコマンドを止めている。
+このリポジトリで使う Claude Code（AI のコーディング支援ツール）は、オーナーと同じ gh のログインで動く。GitHub の API には、画面の「Approve and deploy」と同じことをする API と、Environment の承認者を変えたり Environment を消したりする API がある。Environment を消すと、次の apply のジョブは承認なしで進む（ワークフローが名前で参照すると、GitHub は保護の規則の無い Environment を作り直すため。[GitHub Docs](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments)）。Claude Code が誤ってこれらを呼ばないように、`.claude/settings.json` の `permissions.deny` で、次のどれかを含む `gh` のコマンドを止めている。
 
 - `pending_deployments`（承認待ちのデプロイの REST API）
 - `environments`（Environment の REST API。読むだけのコマンドも止まる）

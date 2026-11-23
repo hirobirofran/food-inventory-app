@@ -1,7 +1,7 @@
 ---
 audience: このアプリを Google Cloud と Vercel で動かす人と、今の環境を保守する人。Git・Node.js・ターミナルは使えるが、このアプリの Google Cloud と Vercel の設定は知らない。
 purpose: コードの外（Google Cloud と Vercel の画面）にあってリポジトリからはわからない設定を残し、同じ環境を作り直したり、本番を壊さずに変更を確かめたりできるようにするため。
-updated: 2026-11-23
+updated: 2026-11-24
 ---
 
 # 環境構築手順書
@@ -315,13 +315,13 @@ GCP の設定を Terraform で管理し、GitHub Actions から動かすため�
 
 用語: SA はサービスアカウント（プログラムが使う Google Cloud のアカウント）。plan は Terraform が変更の予定を出す操作、apply はその変更を実際に反映する操作。seed は、デモのシートにデータを入れ直す `npm run seed:demo` のこと（1 章）。Environment は、GitHub Actions のジョブに通過の条件を付ける GitHub の仕組み。required reviewers は、その条件のうち「決めた人が承認するまでジョブを止める」もの。
 
-apply の流れ（ワークフローの動きは 7 章）: PR を main にマージすると apply のジョブが動き出し、Environment `terraform-apply` の承認待ちで止まる。承認できる人が、Actions の画面でその実行を開き、「Review deployments」から `terraform-apply` を選んで「Approve and deploy」を押すと apply が進む。承認できるのは、このスクリプトを実行した人だけ。ワークフローの apply のジョブには `environment: terraform-apply` と、大文字と小文字も同じに書く（名前が違うと、apply 用 SA を借りられない）。
+apply の流れ（ワークフローの動きは 7 章）: `infra/terraform/` か `terraform-apply.yml` を変える PR を main にマージすると、apply のジョブが動き出し、Environment `terraform-apply` の承認待ちで止まる。承認できる人が、Actions の画面でその実行を開き、「Review deployments」から `terraform-apply` を選んで「Approve and deploy」を押すと apply が進む。承認できるのは、このスクリプトを実行した人だけ。apply のワークフロー（`terraform-apply.yml`）のジョブには `environment: terraform-apply` と、大文字と小文字も同じに書く（名前が違うと、apply 用 SA を借りられない）。
 
 スクリプトが作る物（無ければ作り、あれば、このスクリプトが決めた設定に直す）:
 
 - API の有効化（`iamcredentials`、`sts`。ほかに、スクリプト自身が使う `iam`、`cloudresourcemanager`、`storage`）
 - state を置くバケット（バージョニング〔上書きや削除の前の版をバケットに残す設定〕あり、公開を防ぐ設定）
-- Actions のログを置くバケット（30 日で自動削除、公開を防ぐ設定）。plan 用 SA と apply 用 SA は、ファイルを作れるだけで、読む・上書きする・消すことはできない（`roles/storage.objectCreator`）。state のバケットとは別にする。plan はどのブランチからも動くので、同じバケットだとログを書く権限が state にも届くため
+- Actions のログを置くバケット（30 日で自動削除、公開を防ぐ設定）。plan 用 SA と apply 用 SA は、ファイルを作れるが、中身を読む・上書きする・消すことはできない（下の「ログのバケットの権限」）。state のバケットとは別にする。plan はどのブランチからも動くので、同じバケットだとログを書く権限が state にも届くため
 - GitHub 用の WIF のプールとプロバイダ（名前はどちらも `github`）。このリポジトリのトークンだけを通す。リポジトリは名前ではなく番号（下の「リポジトリの番号で絞る理由」）で見分ける。プロバイダの説明（Cloud Console に出る）には `GitHub Actions: <オーナー>/<リポジトリ名>` を入れる
 - plan 用 SA（`tf-plan`）と apply 用 SA（`tf-apply`）。plan 用はこのリポジトリ（番号で見分ける）のどのブランチからでも借りられ、apply 用は Environment `terraform-apply` を通ったジョブからだけ借りられる。どちらの SA も、借りられるのは決めた 1 つの相手だけで、スクリプトはそれ以外の借りる許可（`roles/iam.workloadIdentityUser`）があれば外す
 - Terraform の最初の state（state のバケットの `gcp/default.tfstate`）。無いときだけ、Terraform 自身に作らせ、plan で「変更なし」になることを確かめる（下の 6-5）
@@ -330,6 +330,19 @@ apply の流れ（ワークフローの動きは 7 章）: PR を main にマー
 - GitHub Secrets 11 個（下の表）
 
 リポジトリの番号で絞る理由: リポジトリの名前は、消したり改名したりした後に、別の人が同じ名前で作り直せる。番号は GitHub が付ける値で、使い回されない。スクリプトは番号を GitHub から取るので、渡す値は増えない。Cloud Console のプロバイダの条件（`assertion.repository_id == '<番号>'`）と照らし合わせたいときは、`gh api repos/<オーナー>/<リポジトリ名> --jq .id` で番号を調べる。
+
+ログのバケットの権限: plan 用 SA と apply 用 SA には、ログのバケットにだけ、次の 2 つのロールを付ける。プロジェクトには付けない。
+
+- `roles/storage.objectCreator`: ファイルを作る（`storage.objects.create`）。上書きと削除はできない
+- `roles/storage.legacyBucketReader`: ファイルの一覧を見る（`storage.objects.list`）。バケットの設定を読む権限（`storage.buckets.get`）と、フォルダなどの一覧の権限も含む。ファイルの中身を読む権限（`storage.objects.get`）は含まない
+
+一覧の権限が要るのは、ワークフローが使う `gcloud storage cp` が、置く前に同じ名前のファイルを確かめるため。作る権限だけでは、この確かめで拒否され、アップロードが失敗する。一覧の権限があれば、中身を読む権限が無くてもアップロードできる（確かめた範囲は下の出典）。
+
+出典:
+
+- 拒否されたこと: [Issue #84 のコメント](https://github.com/hirobirofran/food-inventory-app/issues/84#issuecomment-7104795552)。Cloud Storage の監査ログで、拒否の判定に `storage.objects.get` と `storage.objects.list` が使われていた
+- 一覧の権限で足りること: plan 用 SA は、一覧の権限だけでアップロードに成功していた（[Issue #84 のコメント](https://github.com/hirobirofran/food-inventory-app/issues/84#issuecomment-7105013588)）。apply 用 SA（ログのバケットにこの 2 つのロールだけを持つ）も、このスクリプトで一覧の権限を足した後の apply で、アップロードに成功した（[PR #117 のコメント](https://github.com/hirobirofran/food-inventory-app/pull/117#issuecomment-7106359569)）
+- ロールに含まれる権限: [IAM roles for Cloud Storage](https://docs.cloud.google.com/storage/docs/access-control/iam-roles)（2026-11-24 に確認）。`gcloud iam roles describe <ロール>` でも見られる
 
 スクリプトは、GitHub が Actions に渡すトークンの `sub`（ジョブの出どころを表す値。apply のジョブなら `repo:<オーナー>/<リポジトリ名>:environment:terraform-apply`）が既定の形であることを前提にしている。リポジトリの設定で `sub` の形を変えていると、apply 用 SA を借りられないので、スクリプトは最初に止まる。
 
@@ -407,7 +420,8 @@ Secrets の使い道: `GCP_PROJECT_ID` から `LOG_BUCKET` までの 6 つは、
 - ただし、読むだけの権限では最初の state を作れない。state のファイルが無いと、Terraform は `terraform init` の途中で空の state を書こうとし、そのときロックのファイルも作るため。この動きは `-lock=false` では止まらない
 - そのため、スクリプトは state が無いときだけ、実行した人のログイン（プロジェクトのオーナー）で Terraform 自身に state を作らせ（`terraform init`）、続けて `terraform plan` で「変更なし」になることを確かめる。state のファイルを手で書いて置くことはしない。Terraform への認証は、`gcloud auth print-access-token` で取ったアクセストークンを環境変数で渡す（値は画面にもコマンドの引数にも出さない）
 - state は、state のバケットの中の `gcp/default.tfstate` にできる（Terraform の backend の設定の prefix が `gcp`）。Terraform の設定（`infra/terraform/versions.tf`）の backend も、同じ prefix にしてある。変えると、別の空の state を見に行く
-- apply の途中の state を plan が読むことはありうる。plan と apply は、同じ concurrency グループ（GitHub Actions で、同じグループの実行を同時に走らせず 1 本ずつ並べる設定）で動かして、これを避ける
+- plan は、apply の途中の state を読むことがある。plan と apply は、別の concurrency グループ（GitHub Actions で、同じグループの実行を同時に走らせない設定）で動くため
+- それでも壊れる物は無い。plan は state を読むだけで、ずれるのはその plan の要約だけ。apply は、承認の後に plan をやり直してから反映する（7-1）
 - 読むだけの権限で plan が通ることは、Terraform の公式文書には書かれていない（公式文書は Storage Object Admin を求めている）。Terraform の設定を入れた後の PR で、最初に Actions の plan を動かすときに確かめる。plan が権限の不足で失敗したら、この節を見直す
 
 出典（Terraform のソースは、確かめた時点でスクリプトが使っていた v1.17.0）:
@@ -424,23 +438,41 @@ Secrets の使い道: `GCP_PROJECT_ID` から `LOG_BUCKET` までの 6 つは、
 
 ## 7. Terraform の plan と apply（GitHub Actions）
 
-GCP の設定は `infra/terraform/` に書き、`.github/workflows/terraform.yml` が GitHub Actions で plan と apply を動かす。GCP に入るときは、6 章で作った WIF と 2 つの SA を使う。識別子は 6-4 の GitHub Secrets から渡し、リポジトリには書かない。
+GCP の設定は `infra/terraform/` に書く。plan と apply は、GitHub Actions の 2 つのワークフローで動かす。
+
+- `.github/workflows/terraform-plan.yml`: plan を動かす。plan 用 SA だけを使う
+- `.github/workflows/terraform-apply.yml`: オーナーの承認の後に apply を動かす
+
+apply 用 SA を借りられるのは、Environment `terraform-apply` を通ったジョブだけ（6 章）。権限の境目は、この仕組みが守る。ファイルを分けるのは、それに加えて、次の 2 つのため。
+
+- apply 用 SA とその Secrets を、PR ごとに動く plan のファイルに書かない
+- plan のファイルの変更が、apply の動きに影響しない
+
+GCP に入るときは、6 章で作った WIF と 2 つの SA を使う。識別子は 6-4 の GitHub Secrets から渡し、リポジトリには書かない。
 
 ### 7-1. いつ何が動くか
 
-| きっかけ | 動くもの | 使う SA |
-|---|---|---|
-| main に向けた PR で、`infra/terraform/` か `terraform.yml` を変えるもの（Dependabot とフォークからの PR を除く） | `terraform fmt -check`、`validate`、plan（state のロックを取らない） | plan 用 SA |
-| `infra/terraform/` の変更が main に入る（PR のマージ） | Environment `terraform-apply` の承認を待ってから、plan と apply | apply 用 SA |
-| 手動の実行（Actions の画面の「Run workflow」か `gh workflow run terraform.yml --ref <ブランチ>`） | plan だけ（apply はしない） | plan 用 SA |
+| きっかけ | 動くファイル | 動くもの | 使う SA |
+|---|---|---|---|
+| main に向けた PR で、`infra/terraform/`・`terraform-plan.yml`・`terraform-apply.yml` のどれかを変えるもの（Dependabot とフォークからの PR を除く） | `terraform-plan.yml` | `terraform fmt -check`、`validate`、plan（state のロックを取らない） | plan 用 SA |
+| 手動の実行（Actions の画面の「Run workflow」か `gh workflow run terraform-plan.yml --ref <ブランチ>`） | `terraform-plan.yml` | 上と同じ | plan 用 SA |
+| `infra/terraform/` か `terraform-apply.yml` の変更が main に入る（PR のマージ） | `terraform-apply.yml` | Environment `terraform-apply` の承認を待ってから、plan と apply | apply 用 SA |
 
 - 変更のレビューは、PR の plan の要約で行う。承認の後の apply のジョブは、直前にもう一度 plan して、その結果をそのまま apply する
-- Dependabot が起こした PR と、フォークからの PR では、plan を自動では動かさない。どちらの実行にも通常の Secrets が渡らず、必ず失敗するため。Dependabot の PR が Terraform やこのワークフローに関わるときは、そのブランチを指定して手で実行する（人が起こした実行には Secrets が渡る）。Dependabot のブランチ名は長いことがあり、手動の実行では `sub` が 127 文字を超えて GCP に入れないことがある（6 章）。そのときは、短い名前のブランチに同じコミットを push し、そのブランチを指定して動かす
+- `terraform-apply.yml` だけを変えたときも、main に入った後に apply が動く。apply の手順の変更を、すぐ一度動かして確かめるため。このときも承認が要る
+- Dependabot が GitHub Actions の部品の版を上げる PR も、`terraform-apply.yml` を書き換えることがある。マージすると、上と同じく承認待ちの apply が動く。`infra/terraform/` は変わらないので、変更は 0 件になる（GCP を画面などで手で変えていたときは、それを戻す変更が出る）
+- Dependabot の PR と、フォークからの PR では、plan を自動では動かさない。どちらの実行にも通常の Secrets が渡らず、必ず失敗するため
+- Dependabot の PR が `infra/terraform/`・`terraform-plan.yml`・`terraform-apply.yml` のどれかを変えるときは、マージの前に、Claude Code がそのブランチを指定して plan を手で動かし、要約を確かめる。人が起こした実行には Secrets が渡る
+- Dependabot が起こした実行を「Re-run」しても、plan は動かない。Re-run でも、起こした人は Dependabot のままのため
+- Dependabot のブランチ名が長いと、手動の実行は GCP に入れないことがある（`sub` が 127 文字を超える。6 章）。そのときは、短い名前のブランチに同じコミットを push し、そのブランチで動かす
 - 外部の人（このリポジトリのオーナーや共同作業者でない人）のフォークからの PR では、リポジトリの管理者が PR の画面で承認するまで、ワークフローそのものが動かない（6 章のスクリプトが入れる設定。`ci.yml` の lint やテストも、承認するまで動かない）。今のワークフローは、フォークからの PR に Secrets を渡さず、GCP にも入らないので、承認しても GCP の権限は渡らない。この設定は、将来ワークフローを書き間違えて、フォークからの PR に Secrets が渡るようになったときの最後の守りにする。承認する前に、その PR が `.github/workflows/` を変えていないかを確かめる。画面で設定を変えても、スクリプトを動かし直すとこの設定に戻る
-- plan と apply のジョブは、同じ concurrency グループ（GitHub Actions で、同じグループのジョブを同時に走らせない設定）で動く。走っているジョブがあると、次のジョブは待つ。待てるのは既定では 1 本だけで、さらに次のジョブが来ると、待っていたほうは取り消される。このワークフローは `queue: max` を指定して、待てる数を最大 100 本にしている。100 本を超えた分は取り消される（[GitHub の仕様](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)）
-- apply のジョブは、Environment `terraform-apply` の承認を待っている間も、このグループでは「走っている」扱いになることがある。そうなると、承認か却下が済むまで、後から来た PR の plan や手動の plan も待たされる（実際にそうなるかは、最初の apply のときに確かめる）。plan と apply を別のグループに分けないのは、apply の途中の state を plan が読まないようにするため（6-5）。承認待ちの apply をすぐ承認しないときは、その実行の画面で却下（Reject）する。後で apply するときは、その実行を開いて「Re-run all jobs」を押す
+- plan と apply は、別々の concurrency グループ（GitHub Actions で、同じグループの実行を同時に走らせない設定）で動く。そのため plan は、別の PR の plan にも、承認待ちの apply にも待たされない
+- plan のグループは PR ごと（手動の実行はブランチごと）。同じ PR に新しいコミットを push すると、走っている古い plan は取り消される（Cancelled）。最後の plan だけを見ればよい
+- apply は、すべて 1 つのグループで 1 本ずつ走る。後から来た apply は待ち、走っている apply（承認待ちを含む）を取り消さない
+- 待てる数は、`queue: max` で最大 100 本にしている。既定は 1 本で、次が来ると、前から待っていたほうが取り消される。100 本を超えた分は取り消される（[GitHub の仕様](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)）
+- 承認待ちの apply をすぐ承認しないときは、その実行の画面で却下（Reject）する。却下するまで、後から main に入った apply は待ち続ける。後で apply するときは、その実行を開いて「Re-run all jobs」を押す
 - apply のジョブが取り消された（Cancelled）ときは、Actions の画面で main への push の実行を新しい順に見る。取り消されたのが一番新しい push の実行なら、それを開いて「Re-run all jobs」を押す。それより新しい push の apply が成功していれば、動かし直さなくてよい（新しいほうが、最新の設定を apply している）
-- apply のジョブは、最初（認証や plan より前）に、`infra/terraform/` の中身が今の main の先頭と同じかを確かめる。違えば（その後に `infra/terraform/` を変えたコミットがあれば）、認証・plan・apply を全部飛ばしてジョブを成功で終え、ログに「main の先頭と infra/terraform の中身が違うので適用しない」と出る。古い実行を間違えて動かし直したり、承認の順番が前後したりしても、新しい変更を古い設定で戻さないため。新しいほうの変更は、そのコミットの push の apply が反映する。コミットそのものではなく中身を比べるので、その後にアプリだけを変えたコミットが main に入っていても、apply は動く
+- apply のジョブは、最初（認証や plan より前）に、`infra/terraform/` の中身と `terraform-apply.yml` が今の main の先頭と同じかを確かめる。違えば（その後にどちらかを変えたコミットがあれば）、認証・plan・apply を全部飛ばしてジョブを成功で終え、ログに「main の先頭と、infra/terraform の中身か terraform-apply.yml が違うので適用しない」と出る。古い実行を間違えて動かし直したり、承認の順番が前後したりしても、新しい変更を古い設定で戻さないため。`terraform-apply.yml` も比べるのは、Secrets の渡し方などのワークフローの設定も、古いまま apply しないため。新しいほうの変更は、そのコミットの push の apply が反映する。コミットそのものではなく中身を比べるので、その後にアプリだけを変えたコミットが main に入っていても、apply は動く
 
 ### 7-2. Actions のログに出るもの
 
@@ -452,7 +484,7 @@ GCP の設定は `infra/terraform/` に書き、`.github/workflows/terraform.yml
 
 `fmt` と `validate` の出力は、ファイルの名前とエラーの箇所だけで識別子を含まないので、そのままログに出る。plan のファイル（値を全部含む）は Actions の成果物にせず、plan を PR のコメントにも書かない（PR のコメントは伏せ字にならないため）。
 
-全文のアップロードに失敗すると、ログに「アップロード失敗」と出る。plan のジョブは、それでも失敗にしない（plan の成否は要約と同じステップで分かり、全文は plan を動かし直せば作り直せる）。apply のジョブは失敗にする（apply は GCP を変えるので、記録が残らないことに気づけるようにする）。
+全文のアップロードに失敗すると、ログに「アップロード失敗」と、HTTP の状態と、エラーに出た権限の名前（`storage.objects.get` など）が出る。gcloud のエラーの文そのものは出さない。バケットの名前や SA のメールアドレスを含むため。plan のジョブは、それでも失敗にしない（plan の成否は要約と同じステップで分かり、全文は plan を動かし直せば作り直せる）。apply のジョブは失敗にする（apply は GCP を変えるので、記録が残らないことに気づけるようにする）。
 
 ### 7-3. 失敗したときに全文を読む
 
@@ -467,7 +499,14 @@ GCP の設定は `infra/terraform/` に書き、`.github/workflows/terraform.yml
 
    apply の失敗なら、末尾を `-apply.txt` にする。置き場所が分からないときは、`gcloud storage ls gs://<LOG_BUCKET>/logs/` で一覧を見る
 
-全文には、プロジェクト ID や SA のメールアドレスなどの識別子がそのまま入っている。Issue や PR、チャットに貼らず、原因の要約だけを書く。plan 用 SA と apply 用 SA は、ログのバケットにファイルを作れるだけで、読めない（6 章）。
+全文には、プロジェクト ID や SA のメールアドレスなどの識別子がそのまま入っている。Issue や PR、チャットに貼らず、原因の要約だけを書く。plan 用 SA と apply 用 SA は、ログのバケットのファイルの一覧を見られるが、中身は読めない（6 章）。
+
+全文のアップロードが失敗すると、その実行の全文はどこにも残らない。理由は、「全文を上げる」のステップの「アップロード失敗」の行で見る（何が出るかは 7-2）。HTTP 403 で `storage.objects.create`・`storage.objects.get`・`storage.objects.list` のどれかが出ていたら、ログのバケットの権限（6 章）が足りない。6 章のスクリプトを動かし直してから、その実行を「Re-run」する。
+
+- plan の Re-run は、plan をやり直し、新しい全文を上げる
+- apply の Re-run は、承認を経て、plan と apply をやり直す。失敗した回の全文は戻らない。main の先頭の `infra/terraform/` の中身か `terraform-apply.yml` が変わっていれば、何もせずに終わる（7-1）
+
+Re-run では試行回数が 1 つ増えるので、全文は新しい名前で上がる。
 
 ### 7-4. Claude Code が apply を承認しないようにする設定
 

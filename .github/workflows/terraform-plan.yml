@@ -1,0 +1,136 @@
+name: Terraform plan
+
+# plan と apply（terraform-apply.yml）をファイルで分けるのは、PR ごとに動くこのファイルに、
+# apply 用 SA とその Secrets を書かないため。また、このファイルの変更が apply の動きに影響しないようにするため。
+# apply 用 SA を守る境目は Environment terraform-apply で、ファイルを分けるのはその上の守り（docs/SETUP.md の 7 章、Issue #84）。
+#
+# Terraform の出力（init・plan・show）を全部ファイルに書いてログのバケットに上げ、
+# Actions のログには要約（plan-summary.jq）・成功か失敗か・全文の置き場所だけを出す。
+# 公開リポジトリの Actions のログは、GitHub にログインした人なら誰でも読めるため。
+# Secrets の値は *** になるが、Terraform が GCP から読んだ値（SA の数字の ID など）はそのまま出る。
+# fmt と validate の出力をログに出すのは、ファイルの名前とエラーの箇所だけで、識別子を含まないため。
+# plan のファイル（tfplan）を成果物にしないのは、値を全部含むため。
+# plan を PR にコメントしないのは、PR のコメントは伏せ字にならないため。
+#
+# Actions をコミット ID で固定するのは、版のタグが後から別のコミットに付け替えられ、同じ版の表記のまま中身が変わりうるため。
+# 版をコメントで添えるのは、ID だけではどの版か読めないため（Issue #82 の決定）。
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'infra/terraform/**'
+      - '.github/workflows/terraform-plan.yml'
+      # apply のファイルを変える PR でも動かすのは、マージの後に apply が動くので、その前に plan を見るため
+      - '.github/workflows/terraform-apply.yml'
+  # 手で動かせるようにするのは、自動では plan を動かさない Dependabot の PR を、人が動かして確かめるため
+  # （人が起こした実行には Secrets が渡る。docs/SETUP.md の 7-1）
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # WIF で GCP に入るには、GitHub の OIDC トークンが要る
+  id-token: write
+
+# 古い plan を取り消すのは、同じ PR では最後の plan の結果しか見ないため。plan はロックを取らないので、途中で止めても state は壊れない。
+# グループの名前に github.ref を使うのは、PR では PR ごと（refs/pull/<番号>/merge）、手動の実行ではブランチごとに分かれるため。
+# apply（terraform-apply.yml）と別のグループにするのは、別の PR の plan や、承認待ちの apply に待たされないようにするため
+concurrency:
+  group: terraform-plan-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TF_IN_AUTOMATION: 'true'
+  TF_INPUT: 'false'
+  # 識別子を Secrets から渡すのは、公開リポジトリに環境固有の ID を置かないため。Secrets の値は、ログで *** になる（docs/SETUP.md の 6-4）
+  TF_VAR_gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
+  TF_VAR_app_sa_email: ${{ secrets.APP_SA_EMAIL }}
+  TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+  LOG_BUCKET: ${{ secrets.LOG_BUCKET }}
+
+jobs:
+  plan:
+    # Dependabot が起こした実行と、フォークからの PR の実行で動かさないのは、通常の Secrets が渡らず、plan が必ず失敗するため
+    if: >-
+      github.actor != 'dependabot[bot]'
+      && (github.event_name == 'workflow_dispatch'
+          || github.event.pull_request.head.repo.full_name == github.repository)
+    # 既定の 6 時間だと、GCP が応答しないときに runner を長くふさぐ
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # 版を versions.tf の required_version から読むのは、版を書く所を 1 か所にして、ワークフローとのずれで init が失敗しないようにするため。
+      # 読めるのは "= x.y.z" の形だけ（ADR-0001 の完全一致）で、ほかの形にするとここで止まる
+      - id: tfver
+        name: Terraform の版を読む
+        run: |
+          version=$(sed -nE 's/^[[:space:]]*required_version[[:space:]]*=[[:space:]]*"=[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+)".*/\1/p' versions.tf)
+          if [ -z "$version" ]; then
+            echo "versions.tf の required_version から、Terraform の版（= の後の版）を読めなかった"
+            exit 1
+          fi
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+          echo "Terraform の版: $version"
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ steps.tfver.outputs.version }}
+          # ラッパーは Terraform の出力をログとステップの出力に出すので使わない
+          terraform_wrapper: false
+
+      - name: fmt
+        run: terraform fmt -check -recursive -no-color
+
+      # 伏せるのは、auth が失敗したときのエラーに、プールの名前などの形でプロジェクト番号が出ることがあるため。
+      # プロバイダの名前（projects/<番号>/locations/...）から取り出すのは、番号だけを値に持つ Secret が無いため
+      - name: プロジェクト番号を伏せる
+        env:
+          WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
+        run: echo "::add-mask::$(cut -d/ -f2 <<<"$WIF_PROVIDER")"
+
+      - name: GCP に入る
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.TF_PLAN_SA }}
+
+      - id: init
+        name: init
+        run: |
+          if terraform init -no-color -backend-config="bucket=${TF_STATE_BUCKET}" >"$RUNNER_TEMP/terraform.txt" 2>&1; then
+            echo "init: 成功"
+          else
+            echo "init: 失敗（全文は下の「全文を上げる」の置き場所）"
+            exit 1
+          fi
+
+      - name: validate
+        run: terraform validate -no-color 2>&1 | tee -a "$RUNNER_TEMP/terraform.txt"
+
+      - name: plan
+        run: |
+          log="$RUNNER_TEMP/terraform.txt"
+          # -lock=false にするのは、plan 用 SA は state を読むだけで、ロックのファイルを作れないため（docs/SETUP.md の 6-5）
+          if terraform plan -no-color -lock=false -out=tfplan >>"$log" 2>&1 \
+            && terraform show -json tfplan 2>>"$log" | jq -r -f plan-summary.jq 2>>"$log"; then
+            echo "plan: 成功"
+          else
+            echo "plan: 失敗（全文は下の「全文を上げる」の置き場所）"
+            exit 1
+          fi
+
+      - name: 全文を上げる
+        # init が飛ばされたときに上げないのは、全文のファイルを init のステップが作るため。
+        # always() にするのは、plan が失敗したときこそ全文が要るため
+        if: always() && steps.init.outcome != 'skipped'
+        # アップロードに失敗しても plan のジョブを失敗にしない（warning）のは、plan の成否は上のステップで分かり、
+        # 全文は plan を動かし直せば作り直せるため
+        run: bash upload-log.sh plan warning

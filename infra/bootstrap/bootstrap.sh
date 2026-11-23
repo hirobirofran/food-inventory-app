@@ -404,9 +404,18 @@ keep_only_borrower "$APPLY_SA" "$APPLY_PRINCIPAL"
 bind_role bucket "$TF_STATE_BUCKET" "serviceAccount:${PLAN_SA}" roles/storage.objectViewer
 bind_role bucket "$TF_STATE_BUCKET" "serviceAccount:${APPLY_SA}" roles/storage.objectAdmin
 
-# ログのバケット: どちらもファイルを作るだけ（上書き・削除はできない）
+# ログのバケットで中身を読む権限を付けないのは、plan 用 SA がどのブランチからも借りられ、
+# 読めると、過去の全文（識別子を含む）を公開のログに出せてしまうため。
+# 上書きと削除の権限を付けないのは、apply の記録を書き換えたり消したりできないようにするため。
+# legacyBucketReader を足すのは、gcloud storage cp が置く前に同じ名前のファイルを確かめ、
+# storage.objects.get か storage.objects.list が要るため。
+# objectViewer ではなく legacyBucketReader にするのは、storage.objects.list を含み、中身を読む storage.objects.get を含まないため
+# （含む権限の一覧と根拠は docs/SETUP.md の 6 章）。
+# プロジェクトではなくこのバケットに付けるのは、プロジェクトに付けると、state のバケットを含むすべてのバケットに届くため
 bind_role bucket "$LOG_BUCKET" "serviceAccount:${PLAN_SA}" roles/storage.objectCreator
 bind_role bucket "$LOG_BUCKET" "serviceAccount:${APPLY_SA}" roles/storage.objectCreator
+bind_role bucket "$LOG_BUCKET" "serviceAccount:${PLAN_SA}" roles/storage.legacyBucketReader
+bind_role bucket "$LOG_BUCKET" "serviceAccount:${APPLY_SA}" roles/storage.legacyBucketReader
 
 # プロジェクトの権限（最初の候補。足りない分が分かったらここに足して動かし直す）
 bind_role project "$GCP_PROJECT_ID" "serviceAccount:${PLAN_SA}" roles/iam.securityReviewer
@@ -551,7 +560,9 @@ fi
 #    管理者が承認するまでワークフローを動かさない（画面では Settings → Actions → General の
 #    「Require approval for all external contributors」）。今のワークフローは、フォークからの PR に
 #    Secrets も GCP の権限も渡さない。これは、ワークフローを書き間違えて渡るようになったときの最後の守り。
-#    値が違うときだけ PUT し、PUT の後にもう一度読んで確かめる。
+#    PUT の後に読み直さないのは、変えた直後の読み出しが古い値を返すことがあり、その値で止めると、
+#    設定は変わっているのにスクリプトが止まるため。
+#    変わったかは、次に動かしたときにこの節が「そのまま」と出るかで、人が確かめる（また「更新した」と出たら、前の PUT では変わっていない）。
 # ---------------------------------------------------------------------
 FORK_APPROVAL_API="repos/${GITHUB_REPO}/actions/permissions/fork-pr-contributor-approval"
 FORK_APPROVAL_POLICY="all_external_contributors"
@@ -563,10 +574,6 @@ if [ "$fork_approval_now" = "$FORK_APPROVAL_POLICY" ]; then
 else
   gh api -X PUT "$FORK_APPROVAL_API" -f approval_policy="$FORK_APPROVAL_POLICY" >/dev/null \
     || die "フォークからの PR の承認の設定を変えられませんでした（上が gh のエラー）。"
-  fork_approval_after="$(gh api "$FORK_APPROVAL_API" -q .approval_policy | tr -d '\r')" \
-    || die "フォークからの PR の承認の設定を、変えた後に読めませんでした（上が gh のエラー）。"
-  [ "$fork_approval_after" = "$FORK_APPROVAL_POLICY" ] \
-    || die "フォークからの PR の承認の設定が、変えた後も $FORK_APPROVAL_POLICY になっていません（今: $fork_approval_after）。"
   say "更新した" "フォークからの PR の承認（$fork_approval_now → $FORK_APPROVAL_POLICY）"
 fi
 

@@ -15,6 +15,7 @@ Issue の完了条件の書き方を決めた。
 例:
 
 - 悪い例: `src/app/layout.tsx` の `description` に「PWA」と書かれていない
+- 良い例: 読んだ人が、PWA が使えるという古い前提で作業しない（PWA は設定しておらず、その前提で作業すると無駄になるため）
 
 ## 理由
 
@@ -27,7 +28,7 @@ Issue の完了条件の書き方を決めた。
 
 1. 2026-11-06 17:49Z、オーナー、Claude Code のチャット（セッション 55874853）。Issue #19 を開け直したときに、Claude Code が直す場所を名指しした完了条件を足す案を出した。オーナーはこれを却下し、完了条件は直し方の指示ではなく、どういう状態にするかを書くものだと示した
 2. 2026-11-06 20:21Z、Issue #106 の本文。出典 1 の方針と、Issue #19 の抜け（`handoff/issues/i19/README.md` の失敗 4 と 9）を、Claude Code が記録した
-3. 2026-11-23 18:55Z、オーナー、Claude Code のチャット（セッション 891eef4c）。Issue #106 の要件定義を承認した（https://github.com/hirobirofran/food-inventory-app/issues/106#issuecomment-7110866868 ）。Issue テンプレートと CLAUDE.md からこの ADR を読めるようにすることは、Claude Code の提案
+3. 2026-11-23 18:55Z、オーナー、Claude Code のチャット（セッション 891eef4c）。Issue #106 の要件定義を承認した（https://github.com/hirobirofran/food-inventory-app/issues/106#issuecomment-7110866868 ）。良い例と、Issue テンプレートと CLAUDE.md からこの ADR を読めるようにすることは、Claude Code の提案
 
 ## 関連
 

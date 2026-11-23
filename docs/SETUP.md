@@ -440,7 +440,7 @@ GCP の設定は `infra/terraform/` に書き、`.github/workflows/terraform.yml
 - plan と apply のジョブは、同じ concurrency グループ（GitHub Actions で、同じグループのジョブを同時に走らせない設定）で動く。走っているジョブがあると、次のジョブは待つ。待てるのは既定では 1 本だけで、さらに次のジョブが来ると、待っていたほうは取り消される。このワークフローは `queue: max` を指定して、待てる数を最大 100 本にしている。100 本を超えた分は取り消される（[GitHub の仕様](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)）
 - apply のジョブは、Environment `terraform-apply` の承認を待っている間も、このグループでは「走っている」扱いになることがある。そうなると、承認か却下が済むまで、後から来た PR の plan や手動の plan も待たされる（実際にそうなるかは、最初の apply のときに確かめる）。plan と apply を別のグループに分けないのは、apply の途中の state を plan が読まないようにするため（6-5）。承認待ちの apply をすぐ承認しないときは、その実行の画面で却下（Reject）する。後で apply するときは、その実行を開いて「Re-run all jobs」を押す
 - apply のジョブが取り消された（Cancelled）ときは、Actions の画面で main への push の実行を新しい順に見る。取り消されたのが一番新しい push の実行なら、それを開いて「Re-run all jobs」を押す。それより新しい push の apply が成功していれば、動かし直さなくてよい（新しいほうが、最新の設定を apply している）
-- apply のジョブは、apply の直前に、`infra/terraform/` の中身が今の main の先頭と同じかを確かめる。違えば（その後に `infra/terraform/` を変えたコミットがあれば）、apply せずにジョブを成功で終え、ログに「main の先頭と infra/terraform の中身が違うので適用しない」と出る。古い実行を間違えて動かし直したり、承認の順番が前後したりしても、新しい変更を古い設定で戻さないため。新しいほうの変更は、そのコミットの push の apply が反映する。コミットそのものではなく中身を比べるので、その後にアプリだけを変えたコミットが main に入っていても、apply は動く
+- apply のジョブは、最初（認証や plan より前）に、`infra/terraform/` の中身が今の main の先頭と同じかを確かめる。違えば（その後に `infra/terraform/` を変えたコミットがあれば）、認証・plan・apply を全部飛ばしてジョブを成功で終え、ログに「main の先頭と infra/terraform の中身が違うので適用しない」と出る。古い実行を間違えて動かし直したり、承認の順番が前後したりしても、新しい変更を古い設定で戻さないため。新しいほうの変更は、そのコミットの push の apply が反映する。コミットそのものではなく中身を比べるので、その後にアプリだけを変えたコミットが main に入っていても、apply は動く
 
 ### 7-2. Actions のログに出るもの
 

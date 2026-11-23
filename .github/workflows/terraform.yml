@@ -32,6 +32,8 @@ permissions:
   id-token: write
 
 env:
+  # infra/terraform/versions.tf の required_version と同じ版（版を上げるときはこの 2 か所を直す）
+  TERRAFORM_VERSION: 1.17.2
   TF_IN_AUTOMATION: 'true'
   TF_INPUT: 'false'
   # 識別子はすべて Secrets から渡す（docs/SETUP.md の 6-4）
@@ -71,8 +73,7 @@ jobs:
 
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
-          # infra/terraform/versions.tf の required_version と同じ版
-          terraform_version: 1.17.2
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
           # ラッパーは Terraform の出力をログとステップの出力に出すので使わない
           terraform_wrapper: false
 
@@ -87,7 +88,7 @@ jobs:
           WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
         run: echo "::add-mask::$(cut -d/ -f2 <<<"$WIF_PROVIDER")"
 
-      - id: auth
+      - name: GCP に入る
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
@@ -106,8 +107,7 @@ jobs:
       - name: validate
         run: terraform validate -no-color 2>&1 | tee -a "$RUNNER_TEMP/terraform.txt"
 
-      - id: plan
-        name: plan
+      - name: plan
         run: |
           log="$RUNNER_TEMP/terraform.txt"
           # PR の plan は state のロックを取らない。plan 用 SA は state を読むだけ（docs/SETUP.md の 6-5）
@@ -155,53 +155,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
-        with:
-          terraform_version: 1.17.2
-          terraform_wrapper: false
-
-      # プロジェクト番号だけを値に持つ Secret は無いので、WIF のプロバイダの名前
-      # （projects/<番号>/locations/...）から取り出して伏せ字にする。auth が失敗したときの
-      # エラーに、プールの名前などの形で番号が出ても *** になるように
-      - name: プロジェクト番号を伏せる
-        env:
-          WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
-        run: echo "::add-mask::$(cut -d/ -f2 <<<"$WIF_PROVIDER")"
-
-      - id: auth
-        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          service_account: ${{ secrets.TF_APPLY_SA }}
-
-      - id: init
-        name: init
-        run: |
-          if terraform init -no-color -backend-config="bucket=${TF_STATE_BUCKET}" >"$RUNNER_TEMP/terraform.txt" 2>&1; then
-            echo "init: 成功"
-          else
-            echo "init: 失敗（全文は下の「全文を上げる」の置き場所）"
-            exit 1
-          fi
-
-      - id: plan
-        name: plan
-        run: |
-          log="$RUNNER_TEMP/terraform.txt"
-          # apply の直前にもう一度 plan し、その要約を出してから、同じ plan をそのまま apply する
-          if terraform plan -no-color -out=tfplan >>"$log" 2>&1 \
-            && terraform show -json tfplan 2>>"$log" | jq -r -f plan-summary.jq 2>>"$log"; then
-            echo "plan: 成功"
-          else
-            echo "plan: 失敗（全文は下の「全文を上げる」の置き場所）"
-            exit 1
-          fi
-
       # 古い実行を動かし直したときや、承認の順番が前後したときに、新しいコミットで入れた変更を
-      # 古い設定で戻さないように、apply の直前に、infra/terraform の中身が今の main の先頭と同じかを確かめる。
+      # 古い設定で戻さないように、infra/terraform の中身が今の main の先頭と同じかを、最初に確かめる。
       # コミットそのものではなく中身を比べるのは、Terraform を変えないコミット（アプリの変更など）は
       # この apply を動かさないため。先頭のコミットと比べると、その後にアプリの PR がマージされただけで
-      # どの apply も動かなくなる。git の出力（リポジトリの URL やコミット ID）はログに出さない
+      # どの apply も動かなくなる。認証も Terraform も要らないので最初に確かめ、違えば後の手順は全部飛ばす。
+      # git の出力（リポジトリの URL やコミット ID）はログに出さない
       - id: latest
         name: main の先頭と同じ設定かを確かめる
         run: |
@@ -219,9 +178,53 @@ jobs:
             echo "main の先頭と infra/terraform の中身が違うので適用しない（より新しいコミットの apply が反映する）"
           fi
 
-      - id: apply
-        name: apply
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         if: steps.latest.outputs.same == 'true'
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      # プロジェクト番号だけを値に持つ Secret は無いので、WIF のプロバイダの名前
+      # （projects/<番号>/locations/...）から取り出して伏せ字にする。auth が失敗したときの
+      # エラーに、プールの名前などの形で番号が出ても *** になるように
+      - name: プロジェクト番号を伏せる
+        if: steps.latest.outputs.same == 'true'
+        env:
+          WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
+        run: echo "::add-mask::$(cut -d/ -f2 <<<"$WIF_PROVIDER")"
+
+      - name: GCP に入る
+        if: steps.latest.outputs.same == 'true'
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.TF_APPLY_SA }}
+
+      - id: init
+        name: init
+        if: steps.latest.outputs.same == 'true'
+        run: |
+          if terraform init -no-color -backend-config="bucket=${TF_STATE_BUCKET}" >"$RUNNER_TEMP/terraform.txt" 2>&1; then
+            echo "init: 成功"
+          else
+            echo "init: 失敗（全文は下の「全文を上げる」の置き場所）"
+            exit 1
+          fi
+
+      - name: plan
+        if: steps.latest.outputs.same == 'true'
+        run: |
+          log="$RUNNER_TEMP/terraform.txt"
+          # apply の直前にもう一度 plan し、その要約を出してから、同じ plan をそのまま apply する
+          if terraform plan -no-color -out=tfplan >>"$log" 2>&1 \
+            && terraform show -json tfplan 2>>"$log" | jq -r -f plan-summary.jq 2>>"$log"; then
+            echo "plan: 成功"
+          else
+            echo "plan: 失敗（全文は下の「全文を上げる」の置き場所）"
+            exit 1
+          fi
+
+      - name: apply
         run: |
           if terraform apply -no-color tfplan >>"$RUNNER_TEMP/terraform.txt" 2>&1; then
             echo "apply: 成功"

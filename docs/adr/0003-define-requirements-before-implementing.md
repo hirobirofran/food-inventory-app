@@ -1,7 +1,6 @@
 ---
 status: accepted
 date: 2026-11-23
-decided_by: オーナー
 ---
 
 # Issue は起票時の要求として扱い、着手時に要件を定義してから実装する

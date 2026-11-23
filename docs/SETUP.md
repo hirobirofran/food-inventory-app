@@ -315,7 +315,7 @@ GCP の設定を Terraform で管理し、GitHub Actions から動かすため�
 
 用語: SA はサービスアカウント（プログラムが使う Google Cloud のアカウント）。plan は Terraform が変更の予定を出す操作、apply はその変更を実際に反映する操作。seed は、デモのシートにデータを入れ直す `npm run seed:demo` のこと（1 章）。Environment は、GitHub Actions のジョブに通過の条件を付ける GitHub の仕組み。required reviewers は、その条件のうち「決めた人が承認するまでジョブを止める」もの。
 
-apply の流れ（ワークフローの動きは 7 章）: PR を main にマージすると apply のジョブが動き出し、Environment `terraform-apply` の承認待ちで止まる。承認できる人が、Actions の画面でその実行を開き、「Review deployments」から `terraform-apply` を選んで「Approve and deploy」を押すと apply が進む。承認できるのは、このスクリプトを実行した人だけ。apply のワークフロー（`terraform-apply.yml`）のジョブには `environment: terraform-apply` と、大文字と小文字も同じに書く（名前が違うと、apply 用 SA を借りられない）。
+apply の流れ（ワークフローの動きは 7 章）: `infra/terraform/` か `terraform-apply.yml` を変える PR を main にマージすると、apply のジョブが動き出し、Environment `terraform-apply` の承認待ちで止まる。承認できる人が、Actions の画面でその実行を開き、「Review deployments」から `terraform-apply` を選んで「Approve and deploy」を押すと apply が進む。承認できるのは、このスクリプトを実行した人だけ。apply のワークフロー（`terraform-apply.yml`）のジョブには `environment: terraform-apply` と、大文字と小文字も同じに書く（名前が違うと、apply 用 SA を借りられない）。
 
 スクリプトが作る物（無ければ作り、あれば、このスクリプトが決めた設定に直す）:
 

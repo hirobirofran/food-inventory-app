@@ -422,7 +422,8 @@ Secrets の使い道: `GCP_PROJECT_ID` から `LOG_BUCKET` までの 6 つは、
 - ただし、読むだけの権限では最初の state を作れない。state のファイルが無いと、Terraform は `terraform init` の途中で空の state を書こうとし、そのときロックのファイルも作るため。この動きは `-lock=false` では止まらない
 - そのため、スクリプトは state が無いときだけ、実行した人のログイン（プロジェクトのオーナー）で Terraform 自身に state を作らせ（`terraform init`）、続けて `terraform plan` で「変更なし」になることを確かめる。state のファイルを手で書いて置くことはしない。Terraform への認証は、`gcloud auth print-access-token` で取ったアクセストークンを環境変数で渡す（値は画面にもコマンドの引数にも出さない）
 - state は、state のバケットの中の `gcp/default.tfstate` にできる（Terraform の backend の設定の prefix が `gcp`）。Terraform の設定（`infra/terraform/versions.tf`）の backend も、同じ prefix にしてある。変えると、別の空の state を見に行く
-- apply の途中の state を plan が読むことはありうる。plan と apply は別の concurrency グループ（GitHub Actions で、同じグループの実行を同時に走らせず 1 本ずつ並べる設定）で動くので、これを避けない。plan は state を読むだけなので、古い state を読んでも何も壊れない。ずれるのは、その plan の要約だけ。apply は、承認の後に plan をやり直してから反映する（7-1）
+- plan は、apply の途中の state を読むことがある。plan と apply は、別の concurrency グループ（同じグループの実行を 1 本ずつ並べる、GitHub Actions の設定）で動くため
+- それでも壊れる物は無い。plan は state を読むだけで、ずれるのはその plan の要約だけ。apply は、承認の後に plan をやり直してから反映する（7-1）
 - 読むだけの権限で plan が通ることは、Terraform の公式文書には書かれていない（公式文書は Storage Object Admin を求めている）。Terraform の設定を入れた後の PR で、最初に Actions の plan を動かすときに確かめる。plan が権限の不足で失敗したら、この節を見直す
 
 出典（Terraform のソースは、確かめた時点でスクリプトが使っていた v1.17.0）:

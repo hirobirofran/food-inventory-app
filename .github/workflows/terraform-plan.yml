@@ -1,17 +1,19 @@
 name: Terraform plan
 
-# infra/terraform の GCP の設定を、PR で plan する（Issue #84）。apply は terraform-apply.yml が行う。
-# このファイルには、plan 用 SA と、plan に要る Secrets と権限だけを書く。apply 用の物は書かない。
-# 動き方と、失敗したときに全文を読む手順は docs/SETUP.md の 7 章。
+# plan と apply（terraform-apply.yml）をファイルで分けるのは、PR ごとに動くこのファイルに、
+# apply 用 SA とその Secrets を書かないため。また、このファイルの変更が apply の動きに影響しないようにするため。
+# apply 用 SA を守る境目は Environment terraform-apply で、ファイルを分けるのはその上の守り（docs/SETUP.md の 7 章、Issue #84）。
 #
-# ログの決まり: 公開リポジトリの Actions のログは、GitHub にログインした人なら誰でも読める。
+# Terraform の出力（init・plan・show）を全部ファイルに書いてログのバケットに上げ、
+# Actions のログには要約（plan-summary.jq）・成功か失敗か・全文の置き場所だけを出す。
+# 公開リポジトリの Actions のログは、GitHub にログインした人なら誰でも読めるため。
 # Secrets の値は *** になるが、Terraform が GCP から読んだ値（SA の数字の ID など）はそのまま出る。
-# そのため Terraform の出力（init・plan・show）は全部ファイルに書いてログのバケットに上げ、
-# Actions のログには「要約（plan-summary.jq）」「成功か失敗か」「全文の置き場所」だけを出す。
-# fmt と validate の出力はファイルの名前とエラーの箇所だけで、識別子を含まないのでログに出す。
-# plan のファイル（tfplan）は値を全部含むので、成果物にしない。plan を PR にコメントしない
+# fmt と validate の出力をログに出すのは、ファイルの名前とエラーの箇所だけで、識別子を含まないため。
+# plan のファイル（tfplan）を成果物にしないのは、値を全部含むため。
+# plan を PR にコメントしないのは、PR のコメントは伏せ字にならないため。
 #
-# Actions はコミット ID で固定し、版をコメントで添える（Issue #82 の決定）
+# Actions をコミット ID で固定するのは、版のタグが後から別のコミットに付け替えられ、同じ版の表記のまま中身が変わりうるため。
+# 版をコメントで添えるのは、ID だけではどの版か読めないため（Issue #82 の決定）。
 
 on:
   pull_request:
@@ -19,20 +21,20 @@ on:
     paths:
       - 'infra/terraform/**'
       - '.github/workflows/terraform-plan.yml'
-      # apply の手順を変える PR も、マージの後に apply が動くので、plan を見てからマージする
+      # apply のファイルを変える PR でも動かすのは、マージの後に apply が動くので、その前に plan を見るため
       - '.github/workflows/terraform-apply.yml'
-  # plan を手で動かす。Dependabot の PR を確かめるときに使う:
-  # gh workflow run terraform-plan.yml --ref <PR のブランチ>
+  # 手で動かせるようにするのは、自動では plan を動かさない Dependabot の PR を、人が動かして確かめるため
+  # （人が起こした実行には Secrets が渡る。docs/SETUP.md の 7-1）
   workflow_dispatch:
 
 permissions:
   contents: read
-  # WIF で GCP に入るときに使う、GitHub の OIDC トークン
+  # WIF で GCP に入るには、GitHub の OIDC トークンが要る
   id-token: write
 
-# PR ごとに 1 本だけ走らせ、同じ PR の古い plan は取り消す。github.ref は、PR では
-# refs/pull/<PR の番号>/merge、手動の実行では refs/heads/<ブランチ名> になる。
-# apply（terraform-apply.yml）とは別のグループなので、別の PR の plan にも、承認待ちの apply にも待たされない
+# 古い plan を取り消すのは、同じ PR では最後の plan の結果しか見ないため。plan はロックを取らないので、途中で止めても state は壊れない。
+# グループの名前に github.ref を使うのは、PR では PR ごと（refs/pull/<番号>/merge）、手動の実行ではブランチごとに分かれるため。
+# apply（terraform-apply.yml）と別のグループにするのは、別の PR の plan や、承認待ちの apply に待たされないようにするため
 concurrency:
   group: terraform-plan-${{ github.ref }}
   cancel-in-progress: true
@@ -40,7 +42,7 @@ concurrency:
 env:
   TF_IN_AUTOMATION: 'true'
   TF_INPUT: 'false'
-  # 識別子はすべて Secrets から渡す（docs/SETUP.md の 6-4）
+  # 識別子を Secrets から渡すのは、公開リポジトリに環境固有の ID を置かないため。Secrets の値は、ログで *** になる（docs/SETUP.md の 6-4）
   TF_VAR_gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
   TF_VAR_app_sa_email: ${{ secrets.APP_SA_EMAIL }}
   TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
@@ -48,8 +50,7 @@ env:
 
 jobs:
   plan:
-    # Dependabot が起こした実行と、フォークからの PR の実行には、通常の Secrets が渡らず plan が必ず失敗するので、
-    # 動かさない。Dependabot の PR は、上の workflow_dispatch で人が動かす（人が起こした実行には Secrets が渡る）
+    # Dependabot が起こした実行と、フォークからの PR の実行で動かさないのは、通常の Secrets が渡らず、plan が必ず失敗するため
     if: >-
       github.actor != 'dependabot[bot]'
       && (github.event_name == 'workflow_dispatch'
@@ -66,7 +67,8 @@ jobs:
         with:
           persist-credentials: false
 
-      # Terraform 本体の版は、infra/terraform/versions.tf の required_version にだけ書き、ここで読み出す
+      # 版を versions.tf の required_version から読むのは、版を書く所を 1 か所にして、ワークフローとのずれで init が失敗しないようにするため。
+      # 読めるのは "= x.y.z" の形だけ（ADR-0001 の完全一致）で、ほかの形にするとここで止まる
       - id: tfver
         name: Terraform の版を読む
         run: |
@@ -87,9 +89,8 @@ jobs:
       - name: fmt
         run: terraform fmt -check -recursive -no-color
 
-      # プロジェクト番号だけを値に持つ Secret は無いので、WIF のプロバイダの名前
-      # （projects/<番号>/locations/...）から取り出して伏せ字にする。auth が失敗したときの
-      # エラーに、プールの名前などの形で番号が出ても *** になるように
+      # 伏せるのは、auth が失敗したときのエラーに、プールの名前などの形でプロジェクト番号が出ることがあるため。
+      # プロバイダの名前（projects/<番号>/locations/...）から取り出すのは、番号だけを値に持つ Secret が無いため
       - name: プロジェクト番号を伏せる
         env:
           WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
@@ -117,7 +118,7 @@ jobs:
       - name: plan
         run: |
           log="$RUNNER_TEMP/terraform.txt"
-          # plan は state のロックを取らない。plan 用 SA は state を読むだけ（docs/SETUP.md の 6-5）
+          # -lock=false にするのは、plan 用 SA は state を読むだけで、ロックのファイルを作れないため（docs/SETUP.md の 6-5）
           if terraform plan -no-color -lock=false -out=tfplan >>"$log" 2>&1 \
             && terraform show -json tfplan 2>>"$log" | jq -r -f plan-summary.jq 2>>"$log"; then
             echo "plan: 成功"
@@ -127,8 +128,9 @@ jobs:
           fi
 
       - name: 全文を上げる
-        # init まで進んでいれば、plan が失敗しても上げる
+        # init が飛ばされたときに上げないのは、全文のファイルを init のステップが作るため。
+        # always() にするのは、plan が失敗したときこそ全文が要るため
         if: always() && steps.init.outcome != 'skipped'
-        # アップロードに失敗しても、plan のジョブは失敗にしない（warning）。plan の成否は上のステップで分かり、
-        # 全文は plan を動かし直せば作り直せるため。失敗の理由の出し方は upload-log.sh
+        # アップロードに失敗しても plan のジョブを失敗にしない（warning）のは、plan の成否は上のステップで分かり、
+        # 全文は plan を動かし直せば作り直せるため
         run: bash upload-log.sh plan warning

@@ -25,6 +25,7 @@
 - `docs/` フォルダに詳細ドキュメントがある（人間向け）
 - `docs/` とルートの `README.md` の本文を変えたら、フロントマターの `updated` をその日（日本時間）に書き換える（`docs/adr/0004-docs-frontmatter.md`）
 - コードのコメントには、なぜその処理なのかを書く（`docs/adr/0005-code-comments-explain-why.md`）
+- ドキュメント（コードコメント含む）に、コードにある定義値を極力書かない（`docs/adr/0006-no-code-values-in-docs.md`）
 - 各セッション終了時に `docs/TASKS.md` を更新し、引き継ぎ情報は `handoff/` に書く（下記）。`docs/KNOWLEDGE.md` へのログ的な追記はしない
 
 ### 引き継ぎ情報の置き場所（`handoff/`）
@@ -74,7 +75,7 @@ Issue を起票してから PR を作る。本文の書式は `.github/ISSUE_TEM
 
 ### Issue の完了条件と閉じ方（オーナー指定、2026-10-15）
 
-- 完了条件は、直す場所ではなく「どういう状態にするか」で書く（`docs/adr/0006-completion-conditions-describe-state.md`）
+- 完了条件は、直す場所ではなく「どういう状態にするか」で書く（`docs/adr/0007-completion-conditions-describe-state.md`）
 - 完了条件は、確かめられた時点で（マージ前でも可）、Claude Code が根拠（確認したコミット・方法・URL）を Issue のコメントに残してチェックを入れる。PR 側に書いた確認結果は、Issue のコメントからリンクする
 - 完了条件が全部チェックされたら、Claude Code が Issue を閉じる。チェックが入らない条件が残るなら、Claude Code が理由を Issue に書き、オーナーが判断する。PR の無い Issue も同じ
 - PR のマージで Issue を自動クローズしない。`Closes` / `Fixes` / `Resolves` と Issue 番号の組み合わせを、PR 本文にもコミットメッセージにも書かない。GitHub の Development 欄で Issue を手動リンクしない（マージで閉じるため）。Issue の参照は `Issue: #番号` と書く

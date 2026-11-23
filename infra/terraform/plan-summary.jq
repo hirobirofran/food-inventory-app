@@ -1,5 +1,5 @@
 # terraform show -json <plan のファイル> の出力から、Actions のログに出してよい要約だけを作る。
-# .github/workflows/terraform.yml が jq -r -f で使う。
+# .github/workflows/terraform-plan.yml と terraform-apply.yml が jq -r -f で使う。
 #
 # 出すのは、リソースのアドレス・操作・取り込み（import）かどうかと、その件数だけ。
 # 属性の値と change.importing.id（プロジェクト ID を含む）は出さない。

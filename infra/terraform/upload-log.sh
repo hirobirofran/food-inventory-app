@@ -30,9 +30,12 @@ fi
 # 「does not have permission to access」は、gcloud が HTTP 403 のときだけ使う決まった文
 status=$(grep -oE 'HTTPError [0-9]{3}|not found: [0-9]{3}' "$err" | grep -oE '[0-9]{3}$' | head -n 1 || true)
 if [ -z "$status" ] && grep -q 'does not have permission to access' "$err"; then status=403; fi
-# 権限の名前は storage.objects.* と storage.buckets.* に限って拾う。SA のメールアドレスや URL の一部
-# （…storage.iam.gserviceaccount… や storage.cloud.google… など）を拾わないため
-perms=$(grep -oE 'storage\.(objects|buckets)\.[a-zA-Z]+' "$err" | sort -u | paste -sd ' ' - || true)
+# 権限の名前は、アップロードで要りうる決まった名前だけを、前後が名前の続きでないときに拾う。
+# 任意の文字列を拾うと、バケットの名前などの一部（例: …-storage.objects.audit-…）が出てしまうため。
+# Secret のマスクは値の全体にしか効かず、一部は隠れない
+known='storage\.objects\.(create|get|list|delete)|storage\.buckets\.get'
+perms=$(grep -oE "(^|[^A-Za-z0-9._-])(${known})([^A-Za-z0-9._-]|$)" "$err" \
+  | grep -oE "${known}" | sort -u | paste -sd ' ' - || true)
 echo "::${level}::アップロード失敗（HTTP の状態: ${status:-不明}、エラーに出た権限: ${perms:-なし}）"
 if [ "$level" = error ]; then
   exit 1

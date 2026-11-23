@@ -55,6 +55,8 @@ jobs:
     concurrency:
       group: terraform
       cancel-in-progress: false
+    # 既定の 6 時間だと、GCP が応答しないときに concurrency のグループを長くふさぐ。承認待ちの時間は含まない
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -127,6 +129,8 @@ jobs:
     concurrency:
       group: terraform
       cancel-in-progress: false
+    # 既定の 6 時間だと、GCP が応答しないときに concurrency のグループを長くふさぐ。承認待ちの時間は含まない
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     # オーナーが承認してから動く。名前は大文字と小文字も同じにする（違うと apply 用 SA を借りられない）
     environment: terraform-apply

@@ -4,7 +4,7 @@
 
 ## このリポジトリの先行ルール
 
-CLAUDE.md の「コードレビューの手順」と「Issue の完了条件と閉じ方」が優先する。特に:
+CLAUDE.md の「Issue 対応」と「PR 対応」が優先する。特に:
 
 - Issue 本文は `.github/ISSUE_TEMPLATE/issue.md`、PR 本文は `.github/pull_request_template.md` の構成で書く（`gh` で本文を渡すとテンプレートは自動で入らない）
 - `Closes` / `Fixes` / `Resolves` と Issue 番号の組み合わせを、PR 本文にもコミットメッセージにも書かない。Issue の参照は `Issue: #番号`

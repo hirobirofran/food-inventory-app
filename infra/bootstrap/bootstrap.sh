@@ -557,7 +557,8 @@ fi
 #    管理者が承認するまでワークフローを動かさない（画面では Settings → Actions → General の
 #    「Require approval for all external contributors」）。今のワークフローは、フォークからの PR に
 #    Secrets も GCP の権限も渡さない。これは、ワークフローを書き間違えて渡るようになったときの最後の守り。
-#    値が違うときだけ PUT し、PUT の後にもう一度読んで確かめる。
+#    値が違うときだけ PUT し、PUT が成功したら変わったとみなす（上の Environment と同じ）。
+#    変えた直後に読むと古い値が返ることがあるので、読み直さない。確かめは、次に動かしたときの最初の読み出しで行う。
 # ---------------------------------------------------------------------
 FORK_APPROVAL_API="repos/${GITHUB_REPO}/actions/permissions/fork-pr-contributor-approval"
 FORK_APPROVAL_POLICY="all_external_contributors"
@@ -569,16 +570,6 @@ if [ "$fork_approval_now" = "$FORK_APPROVAL_POLICY" ]; then
 else
   gh api -X PUT "$FORK_APPROVAL_API" -f approval_policy="$FORK_APPROVAL_POLICY" >/dev/null \
     || die "フォークからの PR の承認の設定を変えられませんでした（上が gh のエラー）。"
-  # 変えた直後に読むと、古い値が返ることがある（2026-11-23 に、変わっていたのに古い値で止まった）。
-  # そのため、2 秒おきに 5 回まで読み直す
-  for _ in 1 2 3 4 5; do
-    fork_approval_after="$(gh api "$FORK_APPROVAL_API" -q .approval_policy | tr -d '\r')" \
-      || die "フォークからの PR の承認の設定を、変えた後に読めませんでした（上が gh のエラー）。"
-    [ "$fork_approval_after" = "$FORK_APPROVAL_POLICY" ] && break
-    sleep 2
-  done
-  [ "$fork_approval_after" = "$FORK_APPROVAL_POLICY" ] \
-    || die "フォークからの PR の承認の設定が、変えた後も $FORK_APPROVAL_POLICY になっていません（今: $fork_approval_after）。"
   say "更新した" "フォークからの PR の承認（$fork_approval_now → $FORK_APPROVAL_POLICY）"
 fi
 

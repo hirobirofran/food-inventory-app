@@ -443,7 +443,12 @@ GCP の設定は `infra/terraform/` に書く。plan と apply は、GitHub Acti
 - `.github/workflows/terraform-plan.yml`: plan を動かす。plan 用 SA だけを使う
 - `.github/workflows/terraform-apply.yml`: オーナーの承認の後に apply を動かす。apply 用 SA は、このファイルにだけ書く
 
-ファイルを分けているのは、apply 用 SA とその Secrets を、PR ごとに動く plan のファイルに書かないため。GCP に入るときは、6 章で作った WIF と 2 つの SA を使う。識別子は 6-4 の GitHub Secrets から渡し、リポジトリには書かない。
+apply 用 SA を借りられるのは、Environment `terraform-apply` を通ったジョブだけ（6 章）。権限の境目は、この仕組みが守る。ファイルを分けるのは、それに加えて、次の 2 つのため。
+
+- apply 用 SA とその Secrets を、PR ごとに動く plan のファイルに書かない
+- plan のファイルの変更が、apply の動きに影響しない
+
+GCP に入るときは、6 章で作った WIF と 2 つの SA を使う。識別子は 6-4 の GitHub Secrets から渡し、リポジトリには書かない。
 
 ### 7-1. いつ何が動くか
 

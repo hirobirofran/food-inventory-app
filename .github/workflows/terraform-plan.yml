@@ -129,21 +129,6 @@ jobs:
       - name: 全文を上げる
         # init まで進んでいれば、plan が失敗しても上げる
         if: always() && steps.init.outcome != 'skipped'
-        run: |
-          object="logs/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-plan.txt"
-          err="$RUNNER_TEMP/upload-error.txt"
-          # gcloud は runner に入っている。認証は上の auth が書き出した資格情報を使う。
-          # gcloud の出力にはバケットの名前や SA のメールアドレスが入るので、そのままは出さない
-          if gcloud storage cp "$RUNNER_TEMP/terraform.txt" "gs://${LOG_BUCKET}/${object}" >/dev/null 2>"$err"; then
-            echo "全文の置き場所: ログのバケット（Secret の LOG_BUCKET）の ${object}"
-          else
-            # 標準エラーから、HTTP の状態と権限の名前（storage.objects.get など）だけを抜き出して出す。
-            # 「does not have permission to access」は、gcloud が HTTP 403 のときだけ使う決まった文
-            status=$(grep -oE 'HTTPError [0-9]{3}|not found: [0-9]{3}' "$err" | grep -oE '[0-9]{3}$' | head -n 1 || true)
-            if [ -z "$status" ] && grep -q 'does not have permission to access' "$err"; then status=403; fi
-            # 権限の名前は storage.objects.* と storage.buckets.* に限って拾う。SA のメールアドレスや URL の一部
-            # （…storage.iam.gserviceaccount… や storage.cloud.google… など）を拾わないため
-            perms=$(grep -oE 'storage\.(objects|buckets)\.[a-zA-Z]+' "$err" | sort -u | paste -sd ' ' - || true)
-            # plan の成否は上のステップで分かり、全文は plan を動かし直せば作り直せるので、plan のジョブは失敗にしない
-            echo "::warning::アップロード失敗（HTTP の状態: ${status:-不明}、エラーに出た権限: ${perms:-なし}）"
-          fi
+        # アップロードに失敗しても、plan のジョブは失敗にしない（warning）。plan の成否は上のステップで分かり、
+        # 全文は plan を動かし直せば作り直せるため。失敗の理由の出し方は upload-log.sh
+        run: bash upload-log.sh plan warning

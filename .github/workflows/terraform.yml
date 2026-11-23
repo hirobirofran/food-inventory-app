@@ -55,6 +55,8 @@ jobs:
     concurrency:
       group: terraform
       cancel-in-progress: false
+      # 待てる実行を 1 本（既定）から最大 100 本にする。既定のままだと、待っている apply が次の実行に取り消される
+      queue: max
     # 既定の 6 時間だと、GCP が応答しないときに concurrency のグループを長くふさぐ。承認待ちの時間は含まない
     timeout-minutes: 30
     runs-on: ubuntu-latest
@@ -137,6 +139,8 @@ jobs:
     concurrency:
       group: terraform
       cancel-in-progress: false
+      # 待てる実行を 1 本（既定）から最大 100 本にする。既定のままだと、待っている apply が次の実行に取り消される
+      queue: max
     # 既定の 6 時間だと、GCP が応答しないときに concurrency のグループを長くふさぐ。承認待ちの時間は含まない
     timeout-minutes: 30
     runs-on: ubuntu-latest

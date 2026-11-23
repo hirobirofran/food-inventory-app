@@ -444,7 +444,7 @@ GCP の設定は `infra/terraform/` に書き、`.github/workflows/terraform.yml
 
 - plan の要約: リソースごとのアドレス・操作（`create`、`update`、`delete`、`no-op` など）・取り込み（import）かどうかと、それぞれの件数。`terraform show -json` の出力を `infra/terraform/plan-summary.jq` で絞ったもの。属性の値は出さない
 - 各段階（init・plan・apply）の成功か失敗か
-- 全文の置き場所（ログのバケットの `logs/<実行番号>-<試行回数>-<plan か apply>.txt`）
+- 全文の置き場所（ログのバケットの `logs/<実行の ID>-<試行回数>-<plan か apply>.txt`）。実行の ID は、実行の画面の URL の `runs/` の後の数字で、画面に出る「#12」のような番号とは別。試行回数は「Re-run」した回数に 1 を足した数（初回は 1）
 
 `fmt` と `validate` の出力は、ファイルの名前とエラーの箇所だけで識別子を含まないので、そのままログに出る。plan のファイル（値を全部含む）は Actions の成果物にせず、plan を PR のコメントにも書かない（PR のコメントは伏せ字にならないため）。
 
@@ -454,11 +454,11 @@ GCP の設定は `infra/terraform/` に書き、`.github/workflows/terraform.yml
 
 ログのバケットは 30 日で中身を消す（6 章）。それより前に読む。
 
-1. Actions の画面で、失敗した実行の「全文を上げる」のステップを開き、`logs/` で始まる置き場所を控える。実行番号は実行の画面の URL の `runs/` の後の数字、試行回数は「Re-run」した回数に 1 を足した数（初回は 1）
+1. Actions の画面で、失敗した実行の「全文を上げる」のステップを開き、ステップのログに出る `logs/` で始まる置き場所を、そのまま控える。ステップのログに置き場所が無いときは、実行の ID と試行回数（7-2）から組み立てる
 2. 対象プロジェクトのオーナーのアカウントで `gcloud auth login` が済んだ状態で、次を動かす。`<LOG_BUCKET>` は 6-4 の表の `LOG_BUCKET` の値に置き換える
 
    ```bash
-   gcloud storage cat gs://<LOG_BUCKET>/logs/<実行番号>-<試行回数>-plan.txt
+   gcloud storage cat gs://<LOG_BUCKET>/logs/<実行の ID>-<試行回数>-plan.txt
    ```
 
    apply の失敗なら、末尾を `-apply.txt` にする。置き場所が分からないときは、`gcloud storage ls gs://<LOG_BUCKET>/logs/` で一覧を見る

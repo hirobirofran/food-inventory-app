@@ -1,7 +1,6 @@
 ---
 status: accepted
 date: 2026-11-07
-decided_by: オーナー
 ---
 
 # 人が読むために書いた文書には、audience・purpose・updated のフロントマターを付ける

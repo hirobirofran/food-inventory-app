@@ -1,7 +1,6 @@
 ---
 status: accepted
 date: 2026-10-24
-decided_by: オーナー
 ---
 
 # 記録の置き場と更新の仕方: 引き継ぎは handoff/ に ok の後で main 直、決定は ADR に Issue と PR で

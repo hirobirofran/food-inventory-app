@@ -63,6 +63,7 @@ Issue を起票してから PR を作る。Issue 本文の書式は `.github/ISS
 
 #### Issue の完了条件と閉じ方（オーナー指定、2026-10-15）
 
+- 完了条件は、「修正方法（HOWやWHERE）」ではなく「どういう状態にするか（GOALやSTATE）」で書く（`docs/adr/0007-completion-conditions-describe-state.md`）
 - 完了条件は、確かめられた時点で（マージ前でも可）、Claude Code が根拠（確認したコミット・方法・URL）を Issue のコメントに残してチェックを入れる。PR 側に書いた確認結果は、Issue のコメントからリンクする
 - PR のマージ後、Claude Code が残りの完了条件を確かめる
 - 完了条件が全部チェックされたら、Claude Code が Issue を閉じる。チェックが入らない条件が残るなら、Claude Code が理由を Issue に書き、オーナーが判断する。PR の無い Issue も同じ

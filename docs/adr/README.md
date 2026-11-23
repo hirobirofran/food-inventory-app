@@ -16,5 +16,6 @@ updated: 2026-11-24
 | 0004 | [人が読むために書いた文書には、audience・purpose・updated のフロントマターを付ける](0004-docs-frontmatter.md) | accepted |
 | 0005 | [コードのコメントには、なぜその処理なのかを書く](0005-code-comments-explain-why.md) | accepted |
 | 0006 | [ドキュメント（コードコメント含む）に、コードにある定義値を極力書かない](0006-no-code-values-in-docs.md) | accepted |
+| 0007 | [Issue の完了条件は、「修正方法（HOWやWHERE）」ではなく「どういう状態にするか（GOALやSTATE）」で書く](0007-completion-conditions-describe-state.md) | accepted |
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

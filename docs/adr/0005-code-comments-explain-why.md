@@ -41,7 +41,7 @@ date: 2026-11-24
 1. 2026-11-23 17:20Z、オーナー、Claude Code のチャット（セッション b23c32ed）。PR #117 のコードのコメントが処理の言い直しになっていると指摘し、なぜその処理なのかを書くよう求めた
 2. 2026-11-23 15:56Z と 17:22Z、Claude Code、PR #117。観点を渡さない `/code-review` はコメントの問題を挙げなかった。観点を引数で渡した `/code-review` は、理由の無いコメントを 10 件挙げた（https://github.com/hirobirofran/food-inventory-app/pull/117#discussion_r4669429903 ）
 3. 2026-11-23 18:21Z、オーナー、Claude Code のチャット（セッション 32e09dfd）。Issue #118 の要件定義（決まりの中身、3 つのレビューに観点を渡すこと、範囲外）を承認した（https://github.com/hirobirofran/food-inventory-app/issues/118#issuecomment-7110055648 ）
-4. 決定となるのは、status を accepted にした PR #<番号> をオーナーがマージしたこと（`docs/agents/domain.md` の ADR の運用）
+4. 決定となるのは、status を accepted にした PR #120 をオーナーがマージしたこと（`docs/agents/domain.md` の ADR の運用）
 
 ## 関連
 

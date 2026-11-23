@@ -1,38 +1,42 @@
-name: Terraform
+name: Terraform apply
 
-# infra/terraform の GCP の設定を、PR で plan し、main への push で apply する（Issue #84）。
+# main に入った infra/terraform の GCP の設定を、オーナーの承認の後に apply する（Issue #84）。
+# PR の plan は terraform-plan.yml が行う。apply 用 SA と、apply に要る Secrets と権限は、このファイルにだけ書く。
 # 動き方と、失敗したときに全文を読む手順は docs/SETUP.md の 7 章。
 #
 # ログの決まり: 公開リポジトリの Actions のログは、GitHub にログインした人なら誰でも読める。
 # Secrets の値は *** になるが、Terraform が GCP から読んだ値（SA の数字の ID など）はそのまま出る。
 # そのため Terraform の出力（init・plan・show・apply）は全部ファイルに書いてログのバケットに上げ、
 # Actions のログには「要約（plan-summary.jq）」「成功か失敗か」「全文の置き場所」だけを出す。
-# fmt と validate の出力はファイルの名前とエラーの箇所だけで、識別子を含まないのでログに出す。
-# plan のファイル（tfplan）は値を全部含むので、成果物にしない。plan を PR にコメントしない
+# plan のファイル（tfplan）は値を全部含むので、成果物にしない
 #
 # Actions はコミット ID で固定し、版をコメントで添える（Issue #82 の決定）
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'infra/terraform/**'
-      - '.github/workflows/terraform.yml'
   push:
     branches: [main]
     paths:
       - 'infra/terraform/**'
-  # plan だけを手で動かす（apply はしない）。Dependabot の PR を確かめるときに使う:
-  # gh workflow run terraform.yml --ref <PR のブランチ>
-  workflow_dispatch:
+      # apply の手順そのものを変えたときも、main に入った直後に一度動かして確かめる
+      - '.github/workflows/terraform-apply.yml'
 
 permissions:
   contents: read
   # WIF で GCP に入るときに使う、GitHub の OIDC トークン
   id-token: write
 
+# apply は 1 本ずつ走らせる。走っている apply（承認待ちを含む）は取り消さない。
+# 待てる実行は既定では 1 本だけで、さらに次の実行が来ると、待っていたほうが取り消される。
+# queue: max で、待てる数を最大 100 本にする（docs/SETUP.md の 7-1）。
+# plan（terraform-plan.yml）とは別のグループなので、PR の plan を待たせない
+concurrency:
+  group: terraform-apply
+  cancel-in-progress: false
+  queue: max
+
 env:
-  # infra/terraform/versions.tf の required_version と同じ版（版を上げるときはこの 2 か所を直す）
+  # infra/terraform/versions.tf の required_version と同じ版
+  # （版を上げるときは、versions.tf と、このファイルと terraform-plan.yml の 3 か所を直す）
   TERRAFORM_VERSION: 1.17.2
   TF_IN_AUTOMATION: 'true'
   TF_INPUT: 'false'
@@ -43,104 +47,7 @@ env:
   LOG_BUCKET: ${{ secrets.LOG_BUCKET }}
 
 jobs:
-  plan:
-    # Dependabot が起こした実行と、フォークからの PR には通常の Secrets が渡らず plan が失敗するので、
-    # 自動では動かさない。Dependabot の PR は、上の workflow_dispatch で人が動かす
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request'
-        && github.actor != 'dependabot[bot]'
-        && github.event.pull_request.head.repo.full_name == github.repository)
-    # plan と apply を同じグループで 1 本ずつ走らせる（apply の途中の state を plan が読まないように）。
-    # ワークフロー全体ではなくジョブに書く。全体に書くと、ジョブが動かない実行（Dependabot の PR など）も
-    # グループに入り、待っている apply を取り消しうるため（docs/SETUP.md の 7-1）
-    concurrency:
-      group: terraform
-      cancel-in-progress: false
-      # 待てる実行を 1 本（既定）から最大 100 本にする。既定のままだと、待っている apply が次の実行に取り消される
-      queue: max
-    # 既定の 6 時間だと、GCP が応答しないときに concurrency のグループを長くふさぐ。承認待ちの時間は含まない
-    timeout-minutes: 30
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
-        working-directory: infra/terraform
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
-        with:
-          terraform_version: ${{ env.TERRAFORM_VERSION }}
-          # ラッパーは Terraform の出力をログとステップの出力に出すので使わない
-          terraform_wrapper: false
-
-      - name: fmt
-        run: terraform fmt -check -recursive -no-color
-
-      # プロジェクト番号だけを値に持つ Secret は無いので、WIF のプロバイダの名前
-      # （projects/<番号>/locations/...）から取り出して伏せ字にする。auth が失敗したときの
-      # エラーに、プールの名前などの形で番号が出ても *** になるように
-      - name: プロジェクト番号を伏せる
-        env:
-          WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
-        run: echo "::add-mask::$(cut -d/ -f2 <<<"$WIF_PROVIDER")"
-
-      - name: GCP に入る
-        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          service_account: ${{ secrets.TF_PLAN_SA }}
-
-      - id: init
-        name: init
-        run: |
-          if terraform init -no-color -backend-config="bucket=${TF_STATE_BUCKET}" >"$RUNNER_TEMP/terraform.txt" 2>&1; then
-            echo "init: 成功"
-          else
-            echo "init: 失敗（全文は下の「全文を上げる」の置き場所）"
-            exit 1
-          fi
-
-      - name: validate
-        run: terraform validate -no-color 2>&1 | tee -a "$RUNNER_TEMP/terraform.txt"
-
-      - name: plan
-        run: |
-          log="$RUNNER_TEMP/terraform.txt"
-          # PR の plan は state のロックを取らない。plan 用 SA は state を読むだけ（docs/SETUP.md の 6-5）
-          if terraform plan -no-color -lock=false -out=tfplan >>"$log" 2>&1 \
-            && terraform show -json tfplan 2>>"$log" | jq -r -f plan-summary.jq 2>>"$log"; then
-            echo "plan: 成功"
-          else
-            echo "plan: 失敗（全文は下の「全文を上げる」の置き場所）"
-            exit 1
-          fi
-
-      - name: 全文を上げる
-        # init まで進んでいれば、plan が失敗しても上げる
-        if: always() && steps.init.outcome != 'skipped'
-        run: |
-          object="logs/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-plan.txt"
-          # gcloud は runner に入っている。認証は上の auth が書き出した資格情報を使う。
-          # gcloud の出力にはバケットの名前などが入るので捨てる
-          if gcloud storage cp "$RUNNER_TEMP/terraform.txt" "gs://${LOG_BUCKET}/${object}" >/dev/null 2>&1; then
-            echo "全文の置き場所: ログのバケット（Secret の LOG_BUCKET）の ${object}"
-          else
-            # plan の成否は上のステップで分かるので、plan のジョブは失敗にしない
-            echo "::warning::アップロード失敗"
-          fi
-
   apply:
-    if: github.event_name == 'push'
-    # plan のジョブと同じグループ（上の plan のジョブのコメント）
-    concurrency:
-      group: terraform
-      cancel-in-progress: false
-      # 待てる実行を 1 本（既定）から最大 100 本にする。既定のままだと、待っている apply が次の実行に取り消される
-      queue: max
     # 既定の 6 時間だと、GCP が応答しないときに concurrency のグループを長くふさぐ。承認待ちの時間は含まない
     timeout-minutes: 30
     runs-on: ubuntu-latest
@@ -182,6 +89,7 @@ jobs:
         if: steps.latest.outputs.same == 'true'
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
+          # ラッパーは Terraform の出力をログとステップの出力に出すので使わない
           terraform_wrapper: false
 
       # プロジェクト番号だけを値に持つ Secret は無いので、WIF のプロバイダの名前
@@ -236,13 +144,22 @@ jobs:
           fi
 
       - name: 全文を上げる
+        # init まで進んでいれば、plan や apply が失敗しても上げる
         if: always() && steps.init.outcome != 'skipped'
         run: |
           object="logs/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-apply.txt"
-          if gcloud storage cp "$RUNNER_TEMP/terraform.txt" "gs://${LOG_BUCKET}/${object}" >/dev/null 2>&1; then
+          err="$RUNNER_TEMP/upload-error.txt"
+          # gcloud は runner に入っている。認証は上の auth が書き出した資格情報を使う。
+          # gcloud の出力にはバケットの名前や SA のメールアドレスが入るので、そのままは出さない
+          if gcloud storage cp "$RUNNER_TEMP/terraform.txt" "gs://${LOG_BUCKET}/${object}" >/dev/null 2>"$err"; then
             echo "全文の置き場所: ログのバケット（Secret の LOG_BUCKET）の ${object}"
           else
+            # 標準エラーから、HTTP の状態と権限の名前（storage.objects.get など）だけを抜き出して出す。
+            # 「does not have permission to access」は、gcloud が HTTP 403 のときだけ使う決まった文
+            status=$(grep -oE 'HTTPError [0-9]{3}|not found: [0-9]{3}' "$err" | grep -oE '[0-9]{3}$' | head -n 1 || true)
+            if [ -z "$status" ] && grep -q 'does not have permission to access' "$err"; then status=403; fi
+            perms=$(grep -oE 'storage\.[a-z]+\.[a-zA-Z]+' "$err" | grep -v 'googleapis' | sort -u | paste -sd ' ' - || true)
             # apply は GCP を変えるので、記録が残らないときはジョブを失敗にして気づけるようにする
-            echo "::error::アップロード失敗"
+            echo "::error::アップロード失敗（HTTP の状態: ${status:-不明}、エラーに出た権限: ${perms:-なし}）"
             exit 1
           fi

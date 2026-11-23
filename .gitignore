@@ -48,3 +48,9 @@ next-env.d.ts
 
 # Claude Code のサブエージェント用ワークツリー
 .claude/worktrees/
+
+# Terraform（infra/terraform）。.terraform.lock.hcl はコミットする
+.terraform/
+*.tfstate
+*.tfstate.*
+tfplan

@@ -462,7 +462,7 @@ GCP に入るときは、6 章で作った WIF と 2 つの SA を使う。識�
 - `terraform-apply.yml` だけを変えたときも、main に入った後に apply が動く。apply の手順の変更を、すぐ一度動かして確かめるため。このときも承認が要る
 - Dependabot が GitHub Actions の部品の版を上げる PR も、`terraform-apply.yml` を書き換えることがある。マージすると、上と同じく承認待ちの apply が動く。`infra/terraform/` は変わらないので、変更は 0 件になる（GCP を画面などで手で変えていたときは、それを戻す変更が出る）
 - Dependabot の PR と、フォークからの PR では、plan を自動では動かさない。どちらの実行にも通常の Secrets が渡らず、必ず失敗するため
-- Dependabot の PR が `infra/terraform/` か `terraform-plan.yml` に関わるときは、そのブランチを指定して手で動かす。人が起こした実行には Secrets が渡る
+- Dependabot の PR が `infra/terraform/`・`terraform-plan.yml`・`terraform-apply.yml` のどれかを変えるときは、マージの前に、Claude Code がそのブランチを指定して plan を手で動かし、要約を確かめる。人が起こした実行には Secrets が渡る
 - Dependabot が起こした実行を「Re-run」しても、plan は動かない。Re-run でも、起こした人は Dependabot のままのため
 - Dependabot のブランチ名が長いと、手動の実行は GCP に入れないことがある（`sub` が 127 文字を超える。6 章）。そのときは、短い名前のブランチに同じコミットを push し、そのブランチで動かす
 - 外部の人（このリポジトリのオーナーや共同作業者でない人）のフォークからの PR では、リポジトリの管理者が PR の画面で承認するまで、ワークフローそのものが動かない（6 章のスクリプトが入れる設定。`ci.yml` の lint やテストも、承認するまで動かない）。今のワークフローは、フォークからの PR に Secrets を渡さず、GCP にも入らないので、承認しても GCP の権限は渡らない。この設定は、将来ワークフローを書き間違えて、フォークからの PR に Secrets が渡るようになったときの最後の守りにする。承認する前に、その PR が `.github/workflows/` を変えていないかを確かめる。画面で設定を変えても、スクリプトを動かし直すとこの設定に戻る

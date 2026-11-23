@@ -36,5 +36,7 @@ Issue の完了条件の書き方を決めた。
 
 - `docs/adr/0003-define-requirements-before-implementing.md`（着手時の要件定義で、完了条件を書き直す）
 - `.github/ISSUE_TEMPLATE/issue.md`（完了条件の欄）
+- CLAUDE.md「Issue の完了条件と閉じ方」（完了条件の書き方の 1 項目）
+- Issue #19（起きたこと）、Issue #106（この ADR）
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

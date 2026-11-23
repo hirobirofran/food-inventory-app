@@ -13,6 +13,6 @@ updated: 2026-11-23
 | 0001 | [依存パッケージの更新は、マイナー・パッチなら CI 通過でマージし、むやみに最新にしない](0001-dependency-update-policy.md) | accepted |
 | 0002 | [記録の置き場と更新の仕方: 引き継ぎは handoff/ に ok の後で main 直、決定は ADR に Issue と PR で](0002-record-locations-and-updates.md) | accepted |
 | 0003 | [Issue は起票時の要求として扱い、着手時に要件を定義してから実装する](0003-define-requirements-before-implementing.md) | accepted |
-| 0004 | [人が読むために書いた文書には、audience・purpose・updated のフロントマターを付ける](0004-docs-frontmatter.md) | proposed |
+| 0004 | [人が読むために書いた文書には、audience・purpose・updated のフロントマターを付ける](0004-docs-frontmatter.md) | accepted |
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

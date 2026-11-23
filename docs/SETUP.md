@@ -462,11 +462,17 @@ GCP の設定は `infra/terraform/` に書く。plan と apply は、GitHub Acti
   - この apply は `infra/terraform/` を変えないので、変更は 0 件になり、GCP の中身は変わらない（GCP を画面などで手で変えていたときは、それを戻す変更が出る）
   - この apply は、新しい版の部品が apply で動くかを確かめるためのもの
   - 承認しないまま置くと、後から main に入った apply は、その後ろに並んで待つ。不要なら却下（Reject）してよい
-- Dependabot が起こした PR と、フォークからの PR では、plan を自動では動かさない。どちらの実行にも通常の Secrets が渡らず、必ず失敗するため。Dependabot の PR が `infra/terraform/` か `terraform-plan.yml` に関わるときは、そのブランチを指定して手で実行する（人が起こした実行には Secrets が渡る）。Dependabot が起こした実行を「Re-run」しても、plan は動かない（Re-run でも、最初に起こしたのは Dependabot のままのため）。Dependabot のブランチ名は長いことがあり、手動の実行では `sub` が 127 文字を超えて GCP に入れないことがある（6 章）。そのときは、短い名前のブランチに同じコミットを push し、そのブランチを指定して動かす
+- Dependabot の PR と、フォークからの PR では、plan を自動では動かさない。どちらの実行にも通常の Secrets が渡らず、必ず失敗するため
+- Dependabot の PR が `infra/terraform/` か `terraform-plan.yml` に関わるときは、そのブランチを指定して手で動かす。人が起こした実行には Secrets が渡る
+- Dependabot が起こした実行を「Re-run」しても、plan は動かない。Re-run でも、起こした人は Dependabot のままのため
+- Dependabot のブランチ名が長いと、手動の実行は GCP に入れないことがある（`sub` が 127 文字を超える。6 章）。そのときは、短い名前のブランチに同じコミットを push し、そのブランチで動かす
 - 外部の人（このリポジトリのオーナーや共同作業者でない人）のフォークからの PR では、リポジトリの管理者が PR の画面で承認するまで、ワークフローそのものが動かない（6 章のスクリプトが入れる設定。`ci.yml` の lint やテストも、承認するまで動かない）。今のワークフローは、フォークからの PR に Secrets を渡さず、GCP にも入らないので、承認しても GCP の権限は渡らない。この設定は、将来ワークフローを書き間違えて、フォークからの PR に Secrets が渡るようになったときの最後の守りにする。承認する前に、その PR が `.github/workflows/` を変えていないかを確かめる。画面で設定を変えても、スクリプトを動かし直すとこの設定に戻る
 - plan と apply は、別々の concurrency グループ（GitHub Actions で、同じグループの実行を同時に走らせない設定）で動く。そのため plan は、別の PR の plan にも、承認待ちの apply にも待たされない
 - plan のグループは PR ごと（手動の実行はブランチごと）。同じ PR に新しいコミットを push すると、走っている古い plan は取り消される（Cancelled）。最後の plan だけを見ればよい
-- apply は、すべて 1 つのグループで 1 本ずつ走る。走っている apply は、承認待ちのものも含めて、後から来た実行に取り消されない。後から来た apply は、前の apply が終わるまで待つ。待てるのは既定では 1 本だけで、さらに次が来ると、待っていたほうは取り消される。`terraform-apply.yml` は `queue: max` を指定して、待てる数を最大 100 本にしている。100 本を超えた分は取り消される（[GitHub の仕様](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)）
+- apply は、すべて 1 つのグループで、1 本ずつ走る
+- 走っている apply は、後から来た apply に取り消されない。承認待ちの apply も同じ
+- 後から来た apply は、前の apply が終わるまで待つ
+- 待てる数は、`queue: max` で最大 100 本にしている。既定は 1 本で、次が来ると、前から待っていたほうが取り消される。100 本を超えた分は取り消される（[GitHub の仕様](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)）
 - 承認待ちの apply をすぐ承認しないときは、その実行の画面で却下（Reject）する。却下するまで、後から main に入った apply は待ち続ける。後で apply するときは、その実行を開いて「Re-run all jobs」を押す
 - apply のジョブが取り消された（Cancelled）ときは、Actions の画面で main への push の実行を新しい順に見る。取り消されたのが一番新しい push の実行なら、それを開いて「Re-run all jobs」を押す。それより新しい push の apply が成功していれば、動かし直さなくてよい（新しいほうが、最新の設定を apply している）
 - apply のジョブは、最初（認証や plan より前）に、`infra/terraform/` の中身が今の main の先頭と同じかを確かめる。違えば（その後に `infra/terraform/` を変えたコミットがあれば）、認証・plan・apply を全部飛ばしてジョブを成功で終え、ログに「main の先頭と infra/terraform の中身が違うので適用しない」と出る。古い実行を間違えて動かし直したり、承認の順番が前後したりしても、新しい変更を古い設定で戻さないため。新しいほうの変更は、そのコミットの push の apply が反映する。コミットそのものではなく中身を比べるので、その後にアプリだけを変えたコミットが main に入っていても、apply は動く

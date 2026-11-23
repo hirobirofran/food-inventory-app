@@ -429,7 +429,7 @@ GCP の設定は `infra/terraform/` に書き、`.github/workflows/terraform.yml
 
 | きっかけ | 動くもの | 使う SA |
 |---|---|---|
-| `infra/terraform/` か `terraform.yml` を変える PR | `terraform fmt -check`、`validate`、plan（state のロックを取らない） | plan 用 SA |
+| main に向けた PR で、`infra/terraform/` か `terraform.yml` を変えるもの（Dependabot とフォークからの PR を除く） | `terraform fmt -check`、`validate`、plan（state のロックを取らない） | plan 用 SA |
 | `infra/terraform/` の変更が main に入る（PR のマージ） | Environment `terraform-apply` の承認を待ってから、plan と apply | apply 用 SA |
 | 手動の実行（Actions の画面の「Run workflow」か `gh workflow run terraform.yml --ref <ブランチ>`） | plan だけ（apply はしない） | plan 用 SA |
 

@@ -54,7 +54,7 @@ Claude Code が作成・投稿する文書（GitHub の Issue・PR 本文・コ�
 
 ### コードレビューの手順（オーナー指定。2026-10-11 に制定、2026-10-13・10-15 の指示を反映）
 
-Issue を起票してから PR を作る。本文の書式は `.github/ISSUE_TEMPLATE/issue.md` と `.github/pull_request_template.md` に従う（`gh` で本文を渡して作るときはテンプレートが自動で入らないので、同じ構成で書く）。ゴールと完了条件は Issue に書き、PR には書かない（PR の「目的」には、この PR が必要な理由を短く書く）。実現方法は Issue の起票時に決めず、着手時に決める。Issue の閉じ方は下の「Issue の完了条件と閉じ方」のとおり。
+Issue を起票してから PR を作る。本文の書式は `.github/ISSUE_TEMPLATE/issue.md` と `.github/pull_request_template.md` に従う（`gh` で本文を渡して作るときはテンプレートが自動で入らないので、同じ構成で書く）。ゴールと完了条件は Issue に書き、PR には書かない（PR の「目的」には、この PR が必要な理由を短く書く）。Issue は起票時の要求として扱い、着手時に精査して要件を定義し、オーナーの ok を得てから実装する（`docs/adr/0003-define-requirements-before-implementing.md`）。Issue の閉じ方は下の「Issue の完了条件と閉じ方」のとおり。
 
 1. ドラフト PR を作る前に `npm run lint`・`npm test`・`npx tsc --noEmit` が通ることを確認し、`superpowers:requesting-code-review` でセルフレビューする（レビューはサブエージェントが行う。メインエージェントは行わない）
 2. 指摘は `superpowers:receiving-code-review` で採否を判断し、各コメントのスレッドに対応内容を返信する。修正ならコミットのリンク、見送りなら理由と行き先の Issue のリンクを必ず付ける（番号だけは不可）。Resolved はオーナーが行う

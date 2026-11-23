@@ -48,9 +48,15 @@ next-env.d.ts
 
 # Claude Code のサブエージェント用ワークツリー
 .claude/worktrees/
+# Claude Code の個人用の設定（.claude/settings.json はコミットする）
+.claude/settings.local.json
 
 # Terraform（infra/terraform）。.terraform.lock.hcl はコミットする
 .terraform/
 *.tfstate
 *.tfstate.*
 tfplan
+# 手元で試すときの変数のファイル（プロジェクト ID などの識別子が入る）と、落ちたときのログ
+*.tfvars
+*.tfvars.json
+crash.log

@@ -442,7 +442,7 @@ GCP の設定は `infra/terraform/` に書く。plan と apply は、GitHub Acti
 
 | きっかけ | 動くファイル | 動くもの | 使う SA |
 |---|---|---|---|
-| main に向けた PR で、`infra/terraform/` か `terraform-plan.yml` を変えるもの（Dependabot とフォークからの PR を除く） | `terraform-plan.yml` | `terraform fmt -check`、`validate`、plan（state のロックを取らない） | plan 用 SA |
+| main に向けた PR で、`infra/terraform/`・`terraform-plan.yml`・`terraform-apply.yml` のどれかを変えるもの（Dependabot とフォークからの PR を除く） | `terraform-plan.yml` | `terraform fmt -check`、`validate`、plan（state のロックを取らない） | plan 用 SA |
 | 手動の実行（Actions の画面の「Run workflow」か `gh workflow run terraform-plan.yml --ref <ブランチ>`） | `terraform-plan.yml` | 上と同じ | plan 用 SA |
 | `infra/terraform/` か `terraform-apply.yml` の変更が main に入る（PR のマージ） | `terraform-apply.yml` | Environment `terraform-apply` の承認を待ってから、plan と apply | apply 用 SA |
 

@@ -19,6 +19,8 @@ on:
     paths:
       - 'infra/terraform/**'
       - '.github/workflows/terraform-plan.yml'
+      # apply の手順を変える PR も、マージの後に apply が動くので、plan を見てからマージする
+      - '.github/workflows/terraform-apply.yml'
   # plan を手で動かす。Dependabot の PR を確かめるときに使う:
   # gh workflow run terraform-plan.yml --ref <PR のブランチ>
   workflow_dispatch:

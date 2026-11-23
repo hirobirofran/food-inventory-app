@@ -472,7 +472,7 @@ GCP に入るときは、6 章で作った WIF と 2 つの SA を使う。識�
 - 待てる数は、`queue: max` で最大 100 本にしている。既定は 1 本で、次が来ると、前から待っていたほうが取り消される。100 本を超えた分は取り消される（[GitHub の仕様](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)）
 - 承認待ちの apply をすぐ承認しないときは、その実行の画面で却下（Reject）する。却下するまで、後から main に入った apply は待ち続ける。後で apply するときは、その実行を開いて「Re-run all jobs」を押す
 - apply のジョブが取り消された（Cancelled）ときは、Actions の画面で main への push の実行を新しい順に見る。取り消されたのが一番新しい push の実行なら、それを開いて「Re-run all jobs」を押す。それより新しい push の apply が成功していれば、動かし直さなくてよい（新しいほうが、最新の設定を apply している）
-- apply のジョブは、最初（認証や plan より前）に、`infra/terraform/` の中身が今の main の先頭と同じかを確かめる。違えば（その後に `infra/terraform/` を変えたコミットがあれば）、認証・plan・apply を全部飛ばしてジョブを成功で終え、ログに「main の先頭と infra/terraform の中身が違うので適用しない」と出る。古い実行を間違えて動かし直したり、承認の順番が前後したりしても、新しい変更を古い設定で戻さないため。新しいほうの変更は、そのコミットの push の apply が反映する。コミットそのものではなく中身を比べるので、その後にアプリだけを変えたコミットが main に入っていても、apply は動く
+- apply のジョブは、最初（認証や plan より前）に、`infra/terraform/` の中身と `terraform-apply.yml` が今の main の先頭と同じかを確かめる。違えば（その後にどちらかを変えたコミットがあれば）、認証・plan・apply を全部飛ばしてジョブを成功で終え、ログに「main の先頭と、infra/terraform の中身か terraform-apply.yml が違うので適用しない」と出る。古い実行を間違えて動かし直したり、承認の順番が前後したりしても、新しい変更を古い設定で戻さないため。`terraform-apply.yml` も比べるのは、Secrets の渡し方などのワークフローの設定も、古いまま apply しないため。新しいほうの変更は、そのコミットの push の apply が反映する。コミットそのものではなく中身を比べるので、その後にアプリだけを変えたコミットが main に入っていても、apply は動く
 
 ### 7-2. Actions のログに出るもの
 
@@ -504,7 +504,7 @@ GCP に入るときは、6 章で作った WIF と 2 つの SA を使う。識�
 全文のアップロードが失敗すると、その実行の全文はどこにも残らない。理由は、「全文を上げる」のステップの「アップロード失敗」の行で見る（何が出るかは 7-2）。HTTP 403 で `storage.objects.create`・`storage.objects.get`・`storage.objects.list` のどれかが出ていたら、ログのバケットの権限（6 章）が足りない。6 章のスクリプトを動かし直してから、その実行を「Re-run」する。
 
 - plan の Re-run は、plan をやり直し、新しい全文を上げる
-- apply の Re-run は、承認を経て、plan と apply をやり直す。失敗した回の全文は戻らない。main の先頭の `infra/terraform/` の中身が変わっていれば、何もせずに終わる（7-1）
+- apply の Re-run は、承認を経て、plan と apply をやり直す。失敗した回の全文は戻らない。main の先頭の `infra/terraform/` の中身か `terraform-apply.yml` が変わっていれば、何もせずに終わる（7-1）
 
 Re-run では試行回数が 1 つ増えるので、全文は新しい名前で上がる。
 

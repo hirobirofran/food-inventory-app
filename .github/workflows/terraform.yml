@@ -1,0 +1,189 @@
+name: Terraform
+
+# infra/terraform の GCP の設定を、PR で plan し、main への push で apply する（Issue #84）。
+# 動き方と、失敗したときに全文を読む手順は docs/SETUP.md の 7 章。
+#
+# ログの決まり: 公開リポジトリの Actions のログは、GitHub にログインした人なら誰でも読める。
+# Secrets の値は *** になるが、Terraform が GCP から読んだ値（SA の数字の ID など）はそのまま出る。
+# そのため Terraform の出力（init・plan・show・apply）は全部ファイルに書いてログのバケットに上げ、
+# Actions のログには「要約（plan-summary.jq）」「成功か失敗か」「全文の置き場所」だけを出す。
+# fmt と validate の出力はファイルの名前とエラーの箇所だけで、識別子を含まないのでログに出す。
+# plan のファイル（tfplan）は値を全部含むので、成果物にしない。plan を PR にコメントしない
+#
+# Actions はコミット ID で固定し、版をコメントで添える（Issue #82 の決定）
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'infra/terraform/**'
+      - '.github/workflows/terraform.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/terraform/**'
+  # plan だけを手で動かす（apply はしない）。Dependabot の PR を確かめるときに使う:
+  # gh workflow run terraform.yml --ref <PR のブランチ>
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # WIF で GCP に入るときに使う、GitHub の OIDC トークン
+  id-token: write
+
+# plan と apply を同じグループで 1 本ずつ走らせる（apply の途中の state を plan が読まないように）
+concurrency:
+  group: terraform
+  cancel-in-progress: false
+
+env:
+  TF_IN_AUTOMATION: 'true'
+  TF_INPUT: 'false'
+  # 識別子はすべて Secrets から渡す（docs/SETUP.md の 6-4）
+  TF_VAR_gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
+  TF_VAR_app_sa_email: ${{ secrets.APP_SA_EMAIL }}
+  TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+  LOG_BUCKET: ${{ secrets.LOG_BUCKET }}
+
+jobs:
+  plan:
+    # Dependabot が起こした実行には通常の Secrets が渡らず plan が失敗するので、自動では動かさない。
+    # 代わりに、上の workflow_dispatch で人が動かす
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          # infra/terraform/versions.tf の required_version と同じ版
+          terraform_version: 1.17.2
+          # ラッパーは Terraform の出力をログとステップの出力に出すので使わない
+          terraform_wrapper: false
+
+      - name: fmt
+        run: terraform fmt -check -recursive -no-color
+
+      - id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.TF_PLAN_SA }}
+
+      - id: init
+        name: init
+        run: |
+          if terraform init -no-color -backend-config="bucket=${TF_STATE_BUCKET}" >"$RUNNER_TEMP/terraform.txt" 2>&1; then
+            echo "init: 成功"
+          else
+            echo "init: 失敗（全文は下の「全文を上げる」の置き場所）"
+            exit 1
+          fi
+
+      - name: validate
+        run: terraform validate -no-color 2>&1 | tee -a "$RUNNER_TEMP/terraform.txt"
+
+      - id: plan
+        name: plan
+        run: |
+          log="$RUNNER_TEMP/terraform.txt"
+          # PR の plan は state のロックを取らない。plan 用 SA は state を読むだけ（docs/SETUP.md の 6-5）
+          if terraform plan -no-color -lock=false -out=tfplan >>"$log" 2>&1 \
+            && terraform show -json tfplan 2>>"$log" | jq -r -f plan-summary.jq; then
+            echo "plan: 成功"
+          else
+            echo "plan: 失敗（全文は下の「全文を上げる」の置き場所）"
+            exit 1
+          fi
+
+      - name: 全文を上げる
+        # init まで進んでいれば、plan が失敗しても上げる
+        if: always() && steps.init.outcome != 'skipped'
+        run: |
+          object="logs/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-plan.txt"
+          # gcloud は runner に入っている。認証は上の auth が書き出した資格情報を使う。
+          # gcloud の出力にはバケットの名前などが入るので捨てる
+          if gcloud storage cp "$RUNNER_TEMP/terraform.txt" "gs://${LOG_BUCKET}/${object}" >/dev/null 2>&1; then
+            echo "全文の置き場所: ログのバケット（Secret の LOG_BUCKET）の ${object}"
+          else
+            # plan の成否は上のステップで分かるので、plan のジョブは失敗にしない
+            echo "::warning::アップロード失敗"
+          fi
+
+  apply:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    # オーナーが承認してから動く。名前は大文字と小文字も同じにする（違うと apply 用 SA を借りられない）
+    environment: terraform-apply
+    defaults:
+      run:
+        shell: bash
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.17.2
+          terraform_wrapper: false
+
+      - id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.TF_APPLY_SA }}
+
+      - id: init
+        name: init
+        run: |
+          if terraform init -no-color -backend-config="bucket=${TF_STATE_BUCKET}" >"$RUNNER_TEMP/terraform.txt" 2>&1; then
+            echo "init: 成功"
+          else
+            echo "init: 失敗（全文は下の「全文を上げる」の置き場所）"
+            exit 1
+          fi
+
+      - id: plan
+        name: plan
+        run: |
+          log="$RUNNER_TEMP/terraform.txt"
+          # apply の直前にもう一度 plan し、その要約を出してから、同じ plan をそのまま apply する
+          if terraform plan -no-color -out=tfplan >>"$log" 2>&1 \
+            && terraform show -json tfplan 2>>"$log" | jq -r -f plan-summary.jq; then
+            echo "plan: 成功"
+          else
+            echo "plan: 失敗（全文は下の「全文を上げる」の置き場所）"
+            exit 1
+          fi
+
+      - id: apply
+        name: apply
+        run: |
+          if terraform apply -no-color tfplan >>"$RUNNER_TEMP/terraform.txt" 2>&1; then
+            echo "apply: 成功"
+          else
+            echo "apply: 失敗（全文は下の「全文を上げる」の置き場所）"
+            exit 1
+          fi
+
+      - name: 全文を上げる
+        if: always() && steps.init.outcome != 'skipped'
+        run: |
+          object="logs/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-apply.txt"
+          if gcloud storage cp "$RUNNER_TEMP/terraform.txt" "gs://${LOG_BUCKET}/${object}" >/dev/null 2>&1; then
+            echo "全文の置き場所: ログのバケット（Secret の LOG_BUCKET）の ${object}"
+          else
+            # apply は GCP を変えるので、記録が残らないときはジョブを失敗にして気づけるようにする
+            echo "::error::アップロード失敗"
+            exit 1
+          fi

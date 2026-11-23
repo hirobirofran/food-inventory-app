@@ -334,7 +334,7 @@ apply の流れ（ワークフローの動きは 7 章）: PR を main にマー
 
 今の設定は `gh api repos/<オーナー>/<リポジトリ名>/actions/oidc/customization/sub` で見られる。`"use_default":true` と `"use_immutable_subject":false` があれば既定の形。違うときは、まず誰がなぜ変えたかを確かめる（ほかのクラウドとの WIF が、その形を前提にしていることがある）。既定に戻してよければ、GitHub の REST API の文書（リポジトリの OIDC の `sub` の設定を変える API）に従って戻してから、スクリプトを動かし直す。
 
-GCP 側では、トークンの `sub` をそのまま SA を借りる相手の名前（`google.subject`）にしていて、これは 127 文字までに収める必要がある。plan のワークフローを `pull_request` で動かせば `sub` は短い。ブランチへの push で動かすと、`sub` にブランチ名が入るので、長いブランチ名では GCP に入れない。
+GCP 側では、トークンの `sub` をそのまま SA を借りる相手の名前（`google.subject`）にしていて、これは 127 文字までに収める必要がある。plan のワークフローを `pull_request` で動かせば `sub` は短い。ブランチへの push や、手動の実行（`workflow_dispatch`）で動かすと、`sub` にブランチ名が入るので、長いブランチ名では GCP に入れない。
 
 ### 6-1. 前提
 
@@ -434,7 +434,7 @@ GCP の設定は `infra/terraform/` に書き、`.github/workflows/terraform.yml
 | 手動の実行（Actions の画面の「Run workflow」か `gh workflow run terraform.yml --ref <ブランチ>`） | plan だけ（apply はしない） | plan 用 SA |
 
 - 変更のレビューは、PR の plan の要約で行う。承認の後の apply のジョブは、直前にもう一度 plan して、その結果をそのまま apply する
-- Dependabot が起こした PR と、フォークからの PR では、plan を自動では動かさない。どちらの実行にも通常の Secrets が渡らず、必ず失敗するため。Dependabot の PR が Terraform やこのワークフローに関わるときは、そのブランチを指定して手で実行する（人が起こした実行には Secrets が渡る）
+- Dependabot が起こした PR と、フォークからの PR では、plan を自動では動かさない。どちらの実行にも通常の Secrets が渡らず、必ず失敗するため。Dependabot の PR が Terraform やこのワークフローに関わるときは、そのブランチを指定して手で実行する（人が起こした実行には Secrets が渡る）。Dependabot のブランチ名は長いことがあり、手動の実行では `sub` が 127 文字を超えて GCP に入れないことがある（6 章）。そのときは、短い名前のブランチに同じコミットを push し、そのブランチを指定して動かす
 - plan と apply のジョブは、同じ concurrency グループ（GitHub Actions で、同じグループのジョブを同時に走らせない設定）で動く。走っているジョブがあると、次のジョブは待つ。ただし、待てるのは 1 本だけで、さらに次のジョブが来ると、待っていたほうは取り消される（[GitHub の仕様](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)）
 - apply のジョブが取り消された（Cancelled）ときは、Actions の画面で main への push の実行を新しい順に見る。取り消されたのが一番新しい push の実行なら、それを開いて「Re-run all jobs」を押す。それより新しい push の apply が成功していれば、動かし直さなくてよい（新しいほうが、最新の設定を apply している）。古い実行を動かし直すと、古いコミットの設定で apply してしまう
 

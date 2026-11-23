@@ -1,7 +1,7 @@
 ---
 title: 環境構築手順書
 description: 食材管理アプリを Google Cloud と Vercel で動かすための設定手順と、日々の運用
-updated: 2026-11-07
+updated: 2026-11-23
 ---
 
 # 環境構築手順書
@@ -315,7 +315,7 @@ GCP の設定を Terraform で管理し、GitHub Actions から動かすため�
 
 用語: SA はサービスアカウント（プログラムが使う Google Cloud のアカウント）。plan は Terraform が変更の予定を出す操作、apply はその変更を実際に反映する操作。seed は、デモのシートにデータを入れ直す `npm run seed:demo` のこと（1 章）。Environment は、GitHub Actions のジョブに通過の条件を付ける GitHub の仕組み。required reviewers は、その条件のうち「決めた人が承認するまでジョブを止める」もの。
 
-apply の流れ（ワークフローは [Issue #84](https://github.com/hirobirofran/food-inventory-app/issues/84) で作る。ワークフローができたら、この段落をワークフローの説明に合わせて見直す）: PR を main にマージすると apply のジョブが動き出し、Environment `terraform-apply` の承認待ちで止まる。承認できる人が、Actions の画面でその実行を開き、「Review deployments」から `terraform-apply` を選んで「Approve and deploy」を押すと apply が進む。承認できるのは、このスクリプトを実行した人だけ。ワークフローの apply のジョブには `environment: terraform-apply` と、大文字と小文字も同じに書く（名前が違うと、apply 用 SA を借りられない）。
+apply の流れ（ワークフローの動きは 7 章）: PR を main にマージすると apply のジョブが動き出し、Environment `terraform-apply` の承認待ちで止まる。承認できる人が、Actions の画面でその実行を開き、「Review deployments」から `terraform-apply` を選んで「Approve and deploy」を押すと apply が進む。承認できるのは、このスクリプトを実行した人だけ。ワークフローの apply のジョブには `environment: terraform-apply` と、大文字と小文字も同じに書く（名前が違うと、apply 用 SA を借りられない）。
 
 スクリプトが作る物（無ければ作り、あれば、このスクリプトが決めた設定に直す）:
 
@@ -405,7 +405,7 @@ Secrets の使い道: `GCP_PROJECT_ID` から `LOG_BUCKET` までの 6 つは、
 - Terraform は、state を書き換えるときに、バケットにロックのファイルを作って同時に動かないようにする。plan 用 SA は state を読むだけにしてあるので、Actions の plan はロックを取らない設定（`-lock=false`）で動かす
 - ただし、読むだけの権限では最初の state を作れない。state のファイルが無いと、Terraform は `terraform init` の途中で空の state を書こうとし、そのときロックのファイルも作るため。この動きは `-lock=false` では止まらない
 - そのため、スクリプトは state が無いときだけ、実行した人のログイン（プロジェクトのオーナー）で Terraform 自身に state を作らせ（`terraform init`）、続けて `terraform plan` で「変更なし」になることを確かめる。state のファイルを手で書いて置くことはしない。Terraform への認証は、`gcloud auth print-access-token` で取ったアクセストークンを環境変数で渡す（値は画面にもコマンドの引数にも出さない）
-- state は、state のバケットの中の `gcp/default.tfstate` にできる（Terraform の backend の設定の prefix が `gcp`）。Terraform の設定を書くとき（[Issue #84](https://github.com/hirobirofran/food-inventory-app/issues/84)）は、backend の設定を同じ prefix にする。違うと、別の空の state を見に行く
+- state は、state のバケットの中の `gcp/default.tfstate` にできる（Terraform の backend の設定の prefix が `gcp`）。Terraform の設定（`infra/terraform/versions.tf`）の backend も、同じ prefix にしてある。変えると、別の空の state を見に行く
 - apply の途中の state を plan が読むことはありうる。plan と apply は、同じ concurrency グループ（GitHub Actions で、同じグループの実行を同時に走らせず 1 本ずつ並べる設定）で動かして、これを避ける
 - 読むだけの権限で plan が通ることは、Terraform の公式文書には書かれていない（公式文書は Storage Object Admin を求めている）。Terraform の設定を入れた後の PR で、最初に Actions の plan を動かすときに確かめる。plan が権限の不足で失敗したら、この節を見直す
 
@@ -418,6 +418,51 @@ Secrets の使い道: `GCP_PROJECT_ID` から `LOG_BUCKET` までの 6 つは、
 - Docker のイメージは [Docker Hub の hashicorp/terraform](https://hub.docker.com/r/hashicorp/terraform)。スクリプトは版とダイジェスト（イメージの中身から計算した値）の両方で固定している（`infra/bootstrap/bootstrap.sh` の `TF_VERSION` と `TF_IMAGE`）
 - 公式の [gcs バックエンドのページ](https://developer.hashicorp.com/terraform/language/backend/gcs)は "Storage Object Admin" を求める。ロックを取る使い方が前提と読める
 - `roles/storage.objectViewer` は `storage.objects.get` と `storage.objects.list` を含む（`gcloud iam roles describe roles/storage.objectViewer` で 2026-10-27 に確認）
+
+---
+
+## 7. Terraform の plan と apply（GitHub Actions）
+
+GCP の設定は `infra/terraform/` に書き、`.github/workflows/terraform.yml` が GitHub Actions で plan と apply を動かす。GCP に入るときは、6 章で作った WIF と 2 つの SA を使う。識別子は 6-4 の GitHub Secrets から渡し、リポジトリには書かない。
+
+### 7-1. いつ何が動くか
+
+| きっかけ | 動くもの | 使う SA |
+|---|---|---|
+| `infra/terraform/` か `terraform.yml` を変える PR | `terraform fmt -check`、`validate`、plan（state のロックを取らない） | plan 用 SA |
+| `infra/terraform/` の変更が main に入る（PR のマージ） | Environment `terraform-apply` の承認を待ってから、plan と apply | apply 用 SA |
+| 手動の実行（Actions の画面の「Run workflow」か `gh workflow run terraform.yml --ref <ブランチ>`） | plan だけ（apply はしない） | plan 用 SA |
+
+- 変更のレビューは、PR の plan の要約で行う。承認の後の apply のジョブは、直前にもう一度 plan して、その結果をそのまま apply する
+- Dependabot が起こした PR では、plan を自動では動かさない。Dependabot の実行には通常の Secrets が渡らず、必ず失敗するため。Dependabot の PR が Terraform やこのワークフローに関わるときは、そのブランチを指定して手で実行する（人が起こした実行には Secrets が渡る）
+- plan と apply は同じ concurrency グループ（GitHub Actions で、同じグループの実行を 1 本ずつ並べる設定）で動く。前の実行が終わるまで、次の実行は待つ
+
+### 7-2. Actions のログに出るもの
+
+公開リポジトリの Actions のログは、GitHub にログインした人なら誰でも読める（[GitHub Docs](https://docs.github.com/en/actions/how-tos/monitor-workflows/use-workflow-run-logs)）。Secrets の値は `***` に伏せられるが、Terraform が GCP から読んだ値（SA の数字の ID など）は伏せられない。そのため、Terraform の出力（init・plan・apply）は全部ファイルに書き、Actions のログには次の 3 つだけを出す。
+
+- plan の要約: リソースごとのアドレス・操作（`create`、`update`、`delete`、`no-op` など）・取り込み（import）かどうかと、それぞれの件数。`terraform show -json` の出力を `infra/terraform/plan-summary.jq` で絞ったもの。属性の値は出さない
+- 各段階（init・plan・apply）の成功か失敗か
+- 全文の置き場所（ログのバケットの `logs/<実行番号>-<試行回数>-<plan か apply>.txt`）
+
+`fmt` と `validate` の出力は、ファイルの名前とエラーの箇所だけで識別子を含まないので、そのままログに出る。plan のファイル（値を全部含む）は Actions の成果物にせず、plan を PR のコメントにも書かない（PR のコメントは伏せ字にならないため）。
+
+全文のアップロードに失敗すると、ログに「アップロード失敗」と出る。plan のジョブは、それでも失敗にしない（plan の成否は要約と同じステップで分かり、全文は plan を動かし直せば作り直せる）。apply のジョブは失敗にする（apply は GCP を変えるので、記録が残らないことに気づけるようにする）。
+
+### 7-3. 失敗したときに全文を読む
+
+ログのバケットは 30 日で中身を消す（6 章）。それより前に読む。
+
+1. Actions の画面で、失敗した実行の「全文を上げる」のステップを開き、`logs/` で始まる置き場所を控える。実行番号は実行の画面の URL の `runs/` の後の数字、試行回数は「Re-run」した回数に 1 を足した数（初回は 1）
+2. 対象プロジェクトのオーナーのアカウントで `gcloud auth login` が済んだ状態で、次を動かす。`<LOG_BUCKET>` は 6-4 の表の `LOG_BUCKET` の値に置き換える
+
+   ```bash
+   gcloud storage cat gs://<LOG_BUCKET>/logs/<実行番号>-<試行回数>-plan.txt
+   ```
+
+   apply の失敗なら、末尾を `-apply.txt` にする。置き場所が分からないときは、`gcloud storage ls gs://<LOG_BUCKET>/logs/` で一覧を見る
+
+全文には、プロジェクト ID や SA のメールアドレスなどの識別子がそのまま入っている。Issue や PR、チャットに貼らず、原因の要約だけを書く。plan 用 SA と apply 用 SA は、ログのバケットにファイルを作れるだけで、読めない（6 章）。
 
 ---
 

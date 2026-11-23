@@ -197,8 +197,31 @@ jobs:
             exit 1
           fi
 
+      # 古い実行を動かし直したときや、承認の順番が前後したときに、新しいコミットで入れた変更を
+      # 古い設定で戻さないように、apply の直前に、infra/terraform の中身が今の main の先頭と同じかを確かめる。
+      # コミットそのものではなく中身を比べるのは、Terraform を変えないコミット（アプリの変更など）は
+      # この apply を動かさないため。先頭のコミットと比べると、その後にアプリの PR がマージされただけで
+      # どの apply も動かなくなる。git の出力（リポジトリの URL やコミット ID）はログに出さない
+      - id: latest
+        name: main の先頭と同じ設定かを確かめる
+        run: |
+          if ! git fetch --no-tags --depth=1 origin refs/heads/main >/dev/null 2>&1 \
+            || ! main_tree=$(git rev-parse FETCH_HEAD:infra/terraform 2>/dev/null) \
+            || ! this_tree=$(git rev-parse "${GITHUB_SHA}:infra/terraform" 2>/dev/null); then
+            echo "main の先頭を取れなかったので適用しない"
+            exit 1
+          fi
+          if [ "$main_tree" = "$this_tree" ]; then
+            echo "same=true" >>"$GITHUB_OUTPUT"
+            echo "main の先頭と同じ設定: はい"
+          else
+            echo "same=false" >>"$GITHUB_OUTPUT"
+            echo "main の先頭と infra/terraform の中身が違うので適用しない（より新しいコミットの apply が反映する）"
+          fi
+
       - id: apply
         name: apply
+        if: steps.latest.outputs.same == 'true'
         run: |
           if terraform apply -no-color tfplan >>"$RUNNER_TEMP/terraform.txt" 2>&1; then
             echo "apply: 成功"

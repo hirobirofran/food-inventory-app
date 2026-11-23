@@ -15,6 +15,6 @@ updated: 2026-11-24
 | 0003 | [Issue は起票時の要求として扱い、着手時に要件を定義してから実装する](0003-define-requirements-before-implementing.md) | accepted |
 | 0004 | [人が読むために書いた文書には、audience・purpose・updated のフロントマターを付ける](0004-docs-frontmatter.md) | accepted |
 | 0005 | [コードのコメントには、なぜその処理なのかを書く](0005-code-comments-explain-why.md) | accepted |
-| 0007 | [ドキュメント（コードコメント含む）に、コードにある定義値を極力書かない](0007-no-code-values-in-docs.md) | accepted |
+| 0006 | [ドキュメント（コードコメント含む）に、コードにある定義値を極力書かない](0006-no-code-values-in-docs.md) | accepted |
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

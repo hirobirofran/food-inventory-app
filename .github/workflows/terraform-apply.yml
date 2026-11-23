@@ -158,7 +158,9 @@ jobs:
             # 「does not have permission to access」は、gcloud が HTTP 403 のときだけ使う決まった文
             status=$(grep -oE 'HTTPError [0-9]{3}|not found: [0-9]{3}' "$err" | grep -oE '[0-9]{3}$' | head -n 1 || true)
             if [ -z "$status" ] && grep -q 'does not have permission to access' "$err"; then status=403; fi
-            perms=$(grep -oE 'storage\.[a-z]+\.[a-zA-Z]+' "$err" | grep -v 'googleapis' | sort -u | paste -sd ' ' - || true)
+            # 権限の名前は storage.objects.* と storage.buckets.* に限って拾う。SA のメールアドレスや URL の一部
+            # （…storage.iam.gserviceaccount… や storage.cloud.google… など）を拾わないため
+            perms=$(grep -oE 'storage\.(objects|buckets)\.[a-zA-Z]+' "$err" | sort -u | paste -sd ' ' - || true)
             # apply は GCP を変えるので、記録が残らないときはジョブを失敗にして気づけるようにする
             echo "::error::アップロード失敗（HTTP の状態: ${status:-不明}、エラーに出た権限: ${perms:-なし}）"
             exit 1

@@ -6,10 +6,16 @@
       "Bash(gh *approveDeployments*)",
       "Bash(gh *rejectDeployments*)",
       "Bash(gh *environments*)",
+      "Bash(gh *createEnvironment*)",
+      "Bash(gh *updateEnvironment*)",
+      "Bash(gh *deleteEnvironment*)",
       "PowerShell(gh *pending_deployments*)",
       "PowerShell(gh *approveDeployments*)",
       "PowerShell(gh *rejectDeployments*)",
-      "PowerShell(gh *environments*)"
+      "PowerShell(gh *environments*)",
+      "PowerShell(gh *createEnvironment*)",
+      "PowerShell(gh *updateEnvironment*)",
+      "PowerShell(gh *deleteEnvironment*)"
     ]
   }
 }

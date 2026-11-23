@@ -225,6 +225,8 @@ jobs:
           fi
 
       - name: apply
+        # 条件が無いと、前のステップが飛ばされても（成功扱い）このステップは動き、tfplan が無くて失敗する
+        if: steps.latest.outputs.same == 'true'
         run: |
           if terraform apply -no-color tfplan >>"$RUNNER_TEMP/terraform.txt" 2>&1; then
             echo "apply: 成功"

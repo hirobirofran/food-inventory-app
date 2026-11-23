@@ -341,7 +341,7 @@ apply の流れ（ワークフローの動きは 7 章）: `infra/terraform/` �
 出典:
 
 - 拒否されたこと: [Issue #84 のコメント](https://github.com/hirobirofran/food-inventory-app/issues/84#issuecomment-7104795552)。Cloud Storage の監査ログで、拒否の判定に `storage.objects.get` と `storage.objects.list` が使われていた
-- 一覧の権限で足りること: plan 用 SA は、一覧の権限だけでアップロードに成功していた（[Issue #84 のコメント](https://github.com/hirobirofran/food-inventory-app/issues/84#issuecomment-7105013588)）。apply 用 SA（ログのバケットにこの 2 つのロールだけを持つ）でも成功するかは、このスクリプトを動かした後の apply で確かめる〈確かめてから、結果のコメントへのリンクを入れる〉
+- 一覧の権限で足りること: plan 用 SA は、一覧の権限だけでアップロードに成功していた（[Issue #84 のコメント](https://github.com/hirobirofran/food-inventory-app/issues/84#issuecomment-7105013588)）。apply 用 SA（ログのバケットにこの 2 つのロールだけを持つ）も、このスクリプトで一覧の権限を足した後の apply で、アップロードに成功した（[PR #117 のコメント](https://github.com/hirobirofran/food-inventory-app/pull/117#issuecomment-7106359569)）
 - ロールに含まれる権限: [IAM roles for Cloud Storage](https://docs.cloud.google.com/storage/docs/access-control/iam-roles)（2026-11-24 に確認）。`gcloud iam roles describe <ロール>` でも見られる
 
 スクリプトは、GitHub が Actions に渡すトークンの `sub`（ジョブの出どころを表す値。apply のジョブなら `repo:<オーナー>/<リポジトリ名>:environment:terraform-apply`）が既定の形であることを前提にしている。リポジトリの設定で `sub` の形を変えていると、apply 用 SA を借りられないので、スクリプトは最初に止まる。

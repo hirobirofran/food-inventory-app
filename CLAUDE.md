@@ -71,7 +71,7 @@ Issue を起票してから PR を作る。本文の書式は `.github/ISSUE_TEM
 
 ### Issue の完了条件と閉じ方（オーナー指定、2026-10-15）
 
-- 完了条件は、直す場所ではなく「どういう状態にするか」で書く。ファイル名と行番号は、確かめたときの根拠のコメントに書く。要件定義や開け直しで書き直すときも同じ（`docs/adr/0006-completion-conditions-describe-state.md`）
+- 完了条件は、直す場所ではなく「どういう状態にするか」で書く（`docs/adr/0006-completion-conditions-describe-state.md`）
 - 完了条件は、確かめられた時点で（マージ前でも可）、Claude Code が根拠（確認したコミット・方法・URL）を Issue のコメントに残してチェックを入れる。PR 側に書いた確認結果は、Issue のコメントからリンクする
 - 完了条件が全部チェックされたら、Claude Code が Issue を閉じる。チェックが入らない条件が残るなら、Claude Code が理由を Issue に書き、オーナーが判断する。PR の無い Issue も同じ
 - PR のマージで Issue を自動クローズしない。`Closes` / `Fixes` / `Resolves` と Issue 番号の組み合わせを、PR 本文にもコミットメッセージにも書かない。GitHub の Development 欄で Issue を手動リンクしない（マージで閉じるため）。Issue の参照は `Issue: #番号` と書く

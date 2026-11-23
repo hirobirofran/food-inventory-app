@@ -15,7 +15,7 @@
   - `accepted`: 有効。従う
   - `superseded by ADR-NNNN`: 新しい ADR に置き換え済み。従わず、ADR-NNNN を読む
   - `deprecated`: 使わなくなった。従わない
-- ADR は `accepted` で書いて PR に出し、オーナーが PR をマージしたことを決定とする。マージ前のブランチにある ADR は、`accepted` でもまだ決定ではない（ADR-0003 の決め 1 でオーナーの決定として扱う「accepted の ADR」は、main にあるものを指す）
+- ADR は `accepted` で書いて PR に出し、オーナーが PR をマージしたことを決定とする。マージ前のブランチにある ADR は、`accepted` でもまだ決定ではない（ADR-0003 の決め 1 でオーナーの決定として扱う「accepted の ADR」は、main にあるものを指す）。main にあるかは、`git fetch` してから `git show origin/main:docs/adr/<ファイル名>` で読み、そこでも `accepted` かで確かめる
 - 書く基準は 2 つのどちらか。`/domain-modeling` の ADR 形式の基準（元に戻しにくい、文脈なしでは意外、本物のトレードオフがある）がそろうとき。または、次のセッションが知らないと同じ確認や失敗を繰り返す決定（運用・手順の決めを含む。例: Dependabot のマイナー・パッチ更新は CI 通過でマージする）
 - `handoff/ideas/` との使い分けは対象で分ける。ideas は「やりたいこと・調べたいこと」（記録だけのものも含む）、ADR は「決めた方針」。ideas の案を方針にして ADR へ移すときはオーナーの ok を得る
 - ADR を作ったら `docs/adr/README.md` の索引に 1 行足す

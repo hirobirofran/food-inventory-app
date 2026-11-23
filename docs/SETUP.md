@@ -502,7 +502,12 @@ GCP の設定は `infra/terraform/` に書く。plan と apply は、GitHub Acti
 
 全文には、プロジェクト ID や SA のメールアドレスなどの識別子がそのまま入っている。Issue や PR、チャットに貼らず、原因の要約だけを書く。plan 用 SA と apply 用 SA は、ログのバケットのファイルの一覧を見られるが、中身は読めない（6 章）。
 
-全文のアップロードが失敗したときは、全文はどこにも残らない。「全文を上げる」のステップの「アップロード失敗」の行で、HTTP の状態と権限の名前を見る。HTTP 403 で `storage.objects.create`・`storage.objects.get`・`storage.objects.list` のどれかが出ていたら、ログのバケットの権限（6 章）が足りていない。6 章のスクリプトを動かし直してから、その実行を「Re-run」する。Re-run では試行回数が 1 つ増えるので、全文は新しい名前で上がる。
+全文のアップロードが失敗すると、その実行の全文はどこにも残らない。理由は、「全文を上げる」のステップの「アップロード失敗」の行で見る。この行には、HTTP の状態と権限の名前だけが出る。HTTP 403 で `storage.objects.create`・`storage.objects.get`・`storage.objects.list` のどれかが出ていたら、ログのバケットの権限（6 章）が足りない。6 章のスクリプトを動かし直してから、その実行を「Re-run」する。
+
+- plan の Re-run は、plan をやり直し、新しい全文を上げる
+- apply の Re-run は、承認を経て、plan と apply をやり直す。失敗した回の全文は戻らない。main の先頭の `infra/terraform/` の中身が変わっていれば、何もせずに終わる（7-1）
+
+Re-run では試行回数が 1 つ増えるので、全文は新しい名前で上がる。
 
 ### 7-4. Claude Code が apply を承認しないようにする設定
 

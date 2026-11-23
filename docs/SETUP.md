@@ -326,6 +326,7 @@ apply の流れ（ワークフローの動きは 7 章）: PR を main にマー
 - plan 用 SA（`tf-plan`）と apply 用 SA（`tf-apply`）。plan 用はこのリポジトリ（番号で見分ける）のどのブランチからでも借りられ、apply 用は Environment `terraform-apply` を通ったジョブからだけ借りられる。どちらの SA も、借りられるのは決めた 1 つの相手だけで、スクリプトはそれ以外の借りる許可（`roles/iam.workloadIdentityUser`）があれば外す
 - Terraform の最初の state（state のバケットの `gcp/default.tfstate`）。無いときだけ、Terraform 自身に作らせ、plan で「変更なし」になることを確かめる（下の 6-5）
 - GitHub の Environment `terraform-apply`。承認できる人（required reviewers）は、スクリプトを実行した gh のログインユーザー 1 人。main ブランチのジョブだけが通れる。実行した人が自分で承認できるように、self-review（ジョブを動かした人の承認）は禁止しない（禁止すると、承認できる人が 1 人のときに誰も承認できなくなる）
+- GitHub の Actions の設定のうち、フォークからの PR でワークフローを動かす前に承認を求める設定。外部の人（このリポジトリのオーナーや共同作業者でない人）のフォークからの PR は、初めての人かどうかに関わらず全部、承認されるまでワークフローを動かさない。画面では Settings → Actions → General の「Require approval for all external contributors」にあたる。理由は 7-1。今の設定は `gh api repos/<オーナー>/<リポジトリ名>/actions/permissions/fork-pr-contributor-approval` で見られ、`"approval_policy":"all_external_contributors"` ならこの設定になっている
 - GitHub Secrets 11 個（下の表）
 
 リポジトリの番号で絞る理由: リポジトリの名前は、消したり改名したりした後に、別の人が同じ名前で作り直せる。番号は GitHub が付ける値で、使い回されない。スクリプトは番号を GitHub から取るので、渡す値は増えない。Cloud Console のプロバイダの条件（`assertion.repository_id == '<番号>'`）と照らし合わせたいときは、`gh api repos/<オーナー>/<リポジトリ名> --jq .id` で番号を調べる。
@@ -342,7 +343,7 @@ GCP 側では、トークンの `sub` をそのまま SA を借りる相手の�
 - Google Cloud CLI（`gcloud`）と GitHub CLI（`gh`）が入っている
 - Docker Desktop が起動している（macOS・Linux では Docker が動いている）。最初の state を作る Terraform は、HashiCorp の公式の Docker イメージ（`hashicorp/terraform`）で動かすので、Terraform をこの PC に入れなくてよい。使う版はスクリプトの中で固定してあり、PC ごとの版の違いが出ない。state がすでにあれば Docker は使わない。初めて動かすときは、Docker Hub からイメージ（数十 MB）を取ってくる。Docker が動いていないと、スクリプトは state を作る所で止まり、Environment と Secrets はまだ作られていない。Docker を起動してから、動かし直せばよい
 - `gcloud auth login` が済んでいる。そのアカウントは、対象プロジェクトのオーナー（`roles/owner`）であること
-- `gh auth login` が済んでいる。Secrets と Environment を作れる権限（このリポジトリの管理者）があること
+- `gh auth login` が済んでいる。Secrets と Environment を作り、Actions の設定を変えられる権限（このリポジトリの管理者）があること
 - apply を承認する人（リポジトリのオーナー）本人の gh のログインで動かす。承認できる人は、実行した人になるため
 - required reviewers は、GitHub の無料プランでは公開リポジトリでだけ使える。非公開のリポジトリで動かすと、スクリプトは Environment を作る所で、GitHub のエラーを出して止まる（そこまでに作った GCP の物と state は残り、Secrets はまだ登録されていない）
 
@@ -435,6 +436,7 @@ GCP の設定は `infra/terraform/` に書き、`.github/workflows/terraform.yml
 
 - 変更のレビューは、PR の plan の要約で行う。承認の後の apply のジョブは、直前にもう一度 plan して、その結果をそのまま apply する
 - Dependabot が起こした PR と、フォークからの PR では、plan を自動では動かさない。どちらの実行にも通常の Secrets が渡らず、必ず失敗するため。Dependabot の PR が Terraform やこのワークフローに関わるときは、そのブランチを指定して手で実行する（人が起こした実行には Secrets が渡る）。Dependabot のブランチ名は長いことがあり、手動の実行では `sub` が 127 文字を超えて GCP に入れないことがある（6 章）。そのときは、短い名前のブランチに同じコミットを push し、そのブランチを指定して動かす
+- 外部の人（このリポジトリのオーナーや共同作業者でない人）のフォークからの PR では、リポジトリの管理者が PR の画面で承認するまで、ワークフローそのものが動かない（6 章のスクリプトが入れる設定。`ci.yml` の lint やテストも、承認するまで動かない）。今のワークフローは、フォークからの PR に Secrets を渡さず、GCP にも入らないので、承認しても GCP の権限は渡らない。この設定は、将来ワークフローを書き間違えて、フォークからの PR に Secrets が渡るようになったときの最後の守りにする。承認する前に、その PR が `.github/workflows/` を変えていないかを確かめる。画面で設定を変えても、スクリプトを動かし直すとこの設定に戻る
 - plan と apply のジョブは、同じ concurrency グループ（GitHub Actions で、同じグループのジョブを同時に走らせない設定）で動く。走っているジョブがあると、次のジョブは待つ。待てるのは既定では 1 本だけで、さらに次のジョブが来ると、待っていたほうは取り消される。このワークフローは `queue: max` を指定して、待てる数を最大 100 本にしている。100 本を超えた分は取り消される（[GitHub の仕様](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)）
 - apply のジョブが取り消された（Cancelled）ときは、Actions の画面で main への push の実行を新しい順に見る。取り消されたのが一番新しい push の実行なら、それを開いて「Re-run all jobs」を押す。それより新しい push の apply が成功していれば、動かし直さなくてよい（新しいほうが、最新の設定を apply している）。古い実行を動かし直すと、古いコミットの設定で apply してしまう
 

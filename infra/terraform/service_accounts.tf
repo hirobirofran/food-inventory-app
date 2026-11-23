@@ -22,7 +22,17 @@ resource "google_service_account" "app" {
   display_name = local.app_sa_account_id
   description  = "スプレッドシート更新権限用"
 
-  # SA を消すとアプリが Google Sheets を読み書きできなくなる。消す plan はエラーで止める
+  # SA を消すとアプリが Google Sheets を読み書きできなくなる。この resource ブロックがある間は、
+  # SA を消す plan をエラーで止める。ブロックごと消すと、この守りも無くなり、SA を消す plan が通る。
+  # Terraform の管理から外すときは、ブロックを消す代わりに、SA を消さない removed ブロックを書く:
+  #   removed {
+  #     from = google_service_account.app
+  #     lifecycle {
+  #       destroy = false
+  #     }
+  #   }
+  # 出典: https://developer.hashicorp.com/terraform/language/meta-arguments/lifecycle
+  #       https://developer.hashicorp.com/terraform/language/block/removed
   lifecycle {
     prevent_destroy = true
   }

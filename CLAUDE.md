@@ -24,7 +24,7 @@
 - `.env.local` と Google サービスアカウント JSON キーは**絶対にコミットしない**
 - `docs/` フォルダに詳細ドキュメントがある（人間向け）
 - `docs/` とルートの `README.md` の本文を変えたら、フロントマターの `updated` をその日（日本時間）に書き換える（`docs/adr/0004-docs-frontmatter.md`）
-- ドキュメント（コードコメントを含む）には版数や値を書かず、実物を指す。書く理由があればオーナーに相談する（`docs/adr/0007-point-to-source-not-values.md`）
+- ドキュメント（コードコメントを含む）に、コードにある定義値を書かない。書く理由があれば、書く前にオーナーに相談する（`docs/adr/0007-no-code-values-in-docs.md`）
 - 各セッション終了時に `docs/TASKS.md` を更新し、引き継ぎ情報は `handoff/` に書く（下記）。`docs/KNOWLEDGE.md` へのログ的な追記はしない
 
 ### 引き継ぎ情報の置き場所（`handoff/`）

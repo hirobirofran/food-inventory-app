@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Bash(gh *pending_deployments*)",
+      "Bash(gh *approveDeployments*)",
+      "Bash(gh *rejectDeployments*)",
+      "Bash(gh *environments*)",
+      "Bash(gh *createEnvironment*)",
+      "Bash(gh *updateEnvironment*)",
+      "Bash(gh *deleteEnvironment*)",
+      "PowerShell(gh *pending_deployments*)",
+      "PowerShell(gh *approveDeployments*)",
+      "PowerShell(gh *rejectDeployments*)",
+      "PowerShell(gh *environments*)",
+      "PowerShell(gh *createEnvironment*)",
+      "PowerShell(gh *updateEnvironment*)",
+      "PowerShell(gh *deleteEnvironment*)"
+    ]
+  }
+}

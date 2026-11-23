@@ -3,6 +3,8 @@ name: Issue
 about: 課題の定義。実現方法は着手時に決める
 ---
 
+<!-- 起票時の本文は要求として扱い、着手時に要件を定義する（docs/adr/0003-define-requirements-before-implementing.md） -->
+
 <!-- Issue 本文は長文にしない。100 行超えは NG。詳細を書きたい場合は、リポジトリ上の MD ファイルや Claude のアーティファクトなど別紙にして、リンクで添付する -->
 
 ## 何が起きたのか（なぜこの Issue が必要なのか）

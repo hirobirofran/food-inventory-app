@@ -10,6 +10,7 @@
 #   - plan 用と apply 用のサービスアカウント（SA）と、その権限
 #   - Terraform の最初の state（無いときだけ。Docker の Terraform に作らせ、plan で「変更なし」を確かめる）
 #   - GitHub の Environment（apply のジョブを、承認されるまで止める。承認できるのは実行した人だけ）
+#   - GitHub の Actions の設定（外部の人のフォークからの PR は、承認されるまでワークフローを動かさない）
 #   - GitHub Secrets（gh secret set。値は画面に出さない）
 #
 # 手順と前提は docs/SETUP.md の 6 章。実際の識別子（プロジェクト ID など）は
@@ -305,20 +306,22 @@ ensure_sa "$APPLY_SA_NAME" "$APPLY_SA" "Terraform apply"
 # get_bound <project|sa|bucket> <対象> <メンバー> <ロール>  ... 付いていれば、そのロールを出す
 get_bound() {
   local kind="$1" target="$2" member="$3" role="$4"
-  # gcloud の --filter は大文字と小文字を区別しないため、ロールで絞ったメンバーの一覧を取り、
-  # 大文字と小文字を区別した完全一致（grep -Fx）で比べる。
-  # 条件付きの付与（期限付きなど）は、このスクリプトが付ける条件なしの付与とは別物なので数えない。
-  # 2 列目（条件）が空の行だけを残す
-  local filter="bindings.role=\"$role\"" format='value(bindings.members,bindings.condition)' rows
+  # ポリシー全体を「ロール・メンバー・条件」の 1 行ずつで取り、ロールの絞り込みも比較も手元で行う。
+  # gcloud storage buckets get-iam-policy は --filter を受け付けない。project と sa は受け付けるが、
+  # 読み方を 1 つにするため 3 種ともこの形にする
+  local format='value(bindings.role,bindings.members,bindings.condition)' rows
   case "$kind" in
     project) rows="$(gcloud projects get-iam-policy "$target" --flatten='bindings[].members' \
-               --filter="$filter" --format="$format")" || return 1 ;;
+               --format="$format")" || return 1 ;;
     sa)      rows="$(gcloud iam service-accounts get-iam-policy "$target" --project "$GCP_PROJECT_ID" \
-               --flatten='bindings[].members' --filter="$filter" --format="$format")" || return 1 ;;
+               --flatten='bindings[].members' --format="$format")" || return 1 ;;
     bucket)  rows="$(gcloud storage buckets get-iam-policy "gs://$target" --flatten='bindings[].members' \
-               --filter="$filter" --format="$format")" || return 1 ;;
+               --format="$format")" || return 1 ;;
   esac
-  if awk -F'\t' '$2 == "" { print $1 }' <<<"$rows" | grep -Fxq -- "$member"; then printf '%s\n' "$role"; fi
+  # 1 列目がそのロールで、3 列目（条件）が空の行だけを残す。条件付きの付与（期限付きなど）は、
+  # このスクリプトが付ける条件なしの付与とは別物なので数えない。
+  # メンバーは大文字と小文字を区別した完全一致（grep -Fx）で比べる
+  if awk -F'\t' -v r="$role" '$1 == r && $3 == "" { print $2 }' <<<"$rows" | grep -Fxq -- "$member"; then printf '%s\n' "$role"; fi
   return 0
 }
 
@@ -543,7 +546,32 @@ else
 fi
 
 # ---------------------------------------------------------------------
-# 10. GitHub Secrets
+# 10. フォークからの PR でワークフローを動かす前の承認
+#    外部の人（リポジトリの共同作業者でない人）のフォークからの PR では、誰のものでも、
+#    管理者が承認するまでワークフローを動かさない（画面では Settings → Actions → General の
+#    「Require approval for all external contributors」）。今のワークフローは、フォークからの PR に
+#    Secrets も GCP の権限も渡さない。これは、ワークフローを書き間違えて渡るようになったときの最後の守り。
+#    値が違うときだけ PUT し、PUT の後にもう一度読んで確かめる。
+# ---------------------------------------------------------------------
+FORK_APPROVAL_API="repos/${GITHUB_REPO}/actions/permissions/fork-pr-contributor-approval"
+FORK_APPROVAL_POLICY="all_external_contributors"
+
+fork_approval_now="$(gh api "$FORK_APPROVAL_API" -q .approval_policy | tr -d '\r')" \
+  || die "フォークからの PR の承認の設定を読めませんでした（上が gh のエラー）。"
+if [ "$fork_approval_now" = "$FORK_APPROVAL_POLICY" ]; then
+  say "そのまま" "フォークからの PR の承認（$FORK_APPROVAL_POLICY）"
+else
+  gh api -X PUT "$FORK_APPROVAL_API" -f approval_policy="$FORK_APPROVAL_POLICY" >/dev/null \
+    || die "フォークからの PR の承認の設定を変えられませんでした（上が gh のエラー）。"
+  fork_approval_after="$(gh api "$FORK_APPROVAL_API" -q .approval_policy | tr -d '\r')" \
+    || die "フォークからの PR の承認の設定を、変えた後に読めませんでした（上が gh のエラー）。"
+  [ "$fork_approval_after" = "$FORK_APPROVAL_POLICY" ] \
+    || die "フォークからの PR の承認の設定が、変えた後も $FORK_APPROVAL_POLICY になっていません（今: $fork_approval_after）。"
+  say "更新した" "フォークからの PR の承認（$fork_approval_now → $FORK_APPROVAL_POLICY）"
+fi
+
+# ---------------------------------------------------------------------
+# 11. GitHub Secrets
 #    値は標準入力で渡す（--body だとプロセスの引数に値が出るため）。画面には名前と出どころだけ出す。
 #    すでにある Secret は上書きされる（同じ値なら変わらない）。
 # ---------------------------------------------------------------------

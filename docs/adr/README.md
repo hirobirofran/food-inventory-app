@@ -6,5 +6,6 @@
 | --- | --- | --- |
 | 0001 | [依存パッケージの更新は、マイナー・パッチなら CI 通過でマージし、むやみに最新にしない](0001-dependency-update-policy.md) | accepted |
 | 0002 | [記録の置き場と更新の仕方: 引き継ぎは handoff/ に ok の後で main 直、決定は ADR に Issue と PR で](0002-record-locations-and-updates.md) | accepted |
+| 0003 | [Issue に書いた実現方法は起票時の案として扱い、着手時に目的から採否を決める](0003-issue-proposals-are-not-decisions.md) | proposed |
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

@@ -5,7 +5,7 @@
 # 作る物（無ければ作り、あれば望む設定に更新する。何度動かしても同じ結果になる）:
 #   - API の有効化
 #   - Terraform の state を置くバケット（バージョニングあり）
-#   - Actions のログを置くバケット（30 日で自動削除。plan 用・apply 用の SA は、中身を読む・上書きする・消すことはできない）
+#   - Actions のログを置くバケット（30 日で自動削除）
 #   - GitHub 用の Workload Identity Federation（WIF）のプールとプロバイダ
 #   - plan 用と apply 用のサービスアカウント（SA）と、その権限
 #   - Terraform の最初の state（無いときだけ。Docker の Terraform に作らせ、plan で「変更なし」を確かめる）

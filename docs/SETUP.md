@@ -441,7 +441,7 @@ Secrets の使い道: `GCP_PROJECT_ID` から `LOG_BUCKET` までの 6 つは、
 GCP の設定は `infra/terraform/` に書く。plan と apply は、GitHub Actions の 2 つのワークフローで動かす。
 
 - `.github/workflows/terraform-plan.yml`: plan を動かす。plan 用 SA だけを使う
-- `.github/workflows/terraform-apply.yml`: オーナーの承認の後に apply を動かす。apply 用 SA は、このファイルにだけ書く
+- `.github/workflows/terraform-apply.yml`: オーナーの承認の後に apply を動かす
 
 apply 用 SA を借りられるのは、Environment `terraform-apply` を通ったジョブだけ（6 章）。権限の境目は、この仕組みが守る。ファイルを分けるのは、それに加えて、次の 2 つのため。
 
@@ -460,11 +460,7 @@ GCP に入るときは、6 章で作った WIF と 2 つの SA を使う。識�
 
 - 変更のレビューは、PR の plan の要約で行う。承認の後の apply のジョブは、直前にもう一度 plan して、その結果をそのまま apply する
 - `terraform-apply.yml` だけを変えたときも、main に入った後に apply が動く。apply の手順の変更を、すぐ一度動かして確かめるため。このときも承認が要る
-- Dependabot が GitHub Actions の部品の版を上げる PR は、`terraform-apply.yml` も書き換えることがある。そのときは、マージすると apply が承認待ちになる
-  - Dependabot は、毎週月曜に新しい版を確かめて PR を作る。`terraform-apply.yml` で使う部品の版が上がると、このファイルも書き換える
-  - この apply は `infra/terraform/` を変えないので、変更は 0 件になり、GCP の中身は変わらない（GCP を画面などで手で変えていたときは、それを戻す変更が出る）
-  - この apply は、新しい版の部品が apply で動くかを確かめるためのもの
-  - 承認しないまま置くと、後から main に入った apply は、その後ろに並んで待つ。不要なら却下（Reject）してよい
+- Dependabot が GitHub Actions の部品の版を上げる PR も、`terraform-apply.yml` を書き換えることがある。マージすると、上と同じく承認待ちの apply が動く。`infra/terraform/` は変わらないので、変更は 0 件になる（GCP を画面などで手で変えていたときは、それを戻す変更が出る）
 - Dependabot の PR と、フォークからの PR では、plan を自動では動かさない。どちらの実行にも通常の Secrets が渡らず、必ず失敗するため
 - Dependabot の PR が `infra/terraform/` か `terraform-plan.yml` に関わるときは、そのブランチを指定して手で動かす。人が起こした実行には Secrets が渡る
 - Dependabot が起こした実行を「Re-run」しても、plan は動かない。Re-run でも、起こした人は Dependabot のままのため
@@ -472,9 +468,7 @@ GCP に入るときは、6 章で作った WIF と 2 つの SA を使う。識�
 - 外部の人（このリポジトリのオーナーや共同作業者でない人）のフォークからの PR では、リポジトリの管理者が PR の画面で承認するまで、ワークフローそのものが動かない（6 章のスクリプトが入れる設定。`ci.yml` の lint やテストも、承認するまで動かない）。今のワークフローは、フォークからの PR に Secrets を渡さず、GCP にも入らないので、承認しても GCP の権限は渡らない。この設定は、将来ワークフローを書き間違えて、フォークからの PR に Secrets が渡るようになったときの最後の守りにする。承認する前に、その PR が `.github/workflows/` を変えていないかを確かめる。画面で設定を変えても、スクリプトを動かし直すとこの設定に戻る
 - plan と apply は、別々の concurrency グループ（GitHub Actions で、同じグループの実行を同時に走らせない設定）で動く。そのため plan は、別の PR の plan にも、承認待ちの apply にも待たされない
 - plan のグループは PR ごと（手動の実行はブランチごと）。同じ PR に新しいコミットを push すると、走っている古い plan は取り消される（Cancelled）。最後の plan だけを見ればよい
-- apply は、すべて 1 つのグループで、1 本ずつ走る
-- 走っている apply は、後から来た apply に取り消されない。承認待ちの apply も同じ
-- 後から来た apply は、前の apply が終わるまで待つ
+- apply は、すべて 1 つのグループで 1 本ずつ走る。後から来た apply は待ち、走っている apply（承認待ちを含む）を取り消さない
 - 待てる数は、`queue: max` で最大 100 本にしている。既定は 1 本で、次が来ると、前から待っていたほうが取り消される。100 本を超えた分は取り消される（[GitHub の仕様](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)）
 - 承認待ちの apply をすぐ承認しないときは、その実行の画面で却下（Reject）する。却下するまで、後から main に入った apply は待ち続ける。後で apply するときは、その実行を開いて「Re-run all jobs」を押す
 - apply のジョブが取り消された（Cancelled）ときは、Actions の画面で main への push の実行を新しい順に見る。取り消されたのが一番新しい push の実行なら、それを開いて「Re-run all jobs」を押す。それより新しい push の apply が成功していれば、動かし直さなくてよい（新しいほうが、最新の設定を apply している）
@@ -507,7 +501,7 @@ GCP に入るときは、6 章で作った WIF と 2 つの SA を使う。識�
 
 全文には、プロジェクト ID や SA のメールアドレスなどの識別子がそのまま入っている。Issue や PR、チャットに貼らず、原因の要約だけを書く。plan 用 SA と apply 用 SA は、ログのバケットのファイルの一覧を見られるが、中身は読めない（6 章）。
 
-全文のアップロードが失敗すると、その実行の全文はどこにも残らない。理由は、「全文を上げる」のステップの「アップロード失敗」の行で見る。この行には、HTTP の状態と権限の名前だけが出る。HTTP 403 で `storage.objects.create`・`storage.objects.get`・`storage.objects.list` のどれかが出ていたら、ログのバケットの権限（6 章）が足りない。6 章のスクリプトを動かし直してから、その実行を「Re-run」する。
+全文のアップロードが失敗すると、その実行の全文はどこにも残らない。理由は、「全文を上げる」のステップの「アップロード失敗」の行で見る（何が出るかは 7-2）。HTTP 403 で `storage.objects.create`・`storage.objects.get`・`storage.objects.list` のどれかが出ていたら、ログのバケットの権限（6 章）が足りない。6 章のスクリプトを動かし直してから、その実行を「Re-run」する。
 
 - plan の Re-run は、plan をやり直し、新しい全文を上げる
 - apply の Re-run は、承認を経て、plan と apply をやり直す。失敗した回の全文は戻らない。main の先頭の `infra/terraform/` の中身が変わっていれば、何もせずに終わる（7-1）

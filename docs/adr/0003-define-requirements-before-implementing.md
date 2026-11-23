@@ -120,7 +120,8 @@ PR #112 のマージ後に、オーナーが問題を指摘した。
 
 ## 関連
 
-- CLAUDE.md「コードレビューの手順」（着手時の要件定義、手順 2 の返信、手順 4 の Codex）
+- CLAUDE.md「Issue の起票と着手」（着手時の要件定義）
+- CLAUDE.md「コードレビューの手順」（手順 2 の返信、手順 4 の Codex）
 - CLAUDE.md「Issue の完了条件と閉じ方」
 - `.github/ISSUE_TEMPLATE/issue.md`（完了条件の欄）
 - `.github/pull_request_template.md`（特にレビューしてほしい観点）

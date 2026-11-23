@@ -1,7 +1,7 @@
 ---
 title: 環境構築手順書
 description: 食材管理アプリを Google Cloud と Vercel で動かすための設定手順と、日々の運用
-updated: 2026-11-07
+updated: 2026-11-23
 ---
 
 # 環境構築手順書
@@ -315,17 +315,18 @@ GCP の設定を Terraform で管理し、GitHub Actions から動かすため�
 
 用語: SA はサービスアカウント（プログラムが使う Google Cloud のアカウント）。plan は Terraform が変更の予定を出す操作、apply はその変更を実際に反映する操作。seed は、デモのシートにデータを入れ直す `npm run seed:demo` のこと（1 章）。Environment は、GitHub Actions のジョブに通過の条件を付ける GitHub の仕組み。required reviewers は、その条件のうち「決めた人が承認するまでジョブを止める」もの。
 
-apply の流れ（ワークフローは [Issue #84](https://github.com/hirobirofran/food-inventory-app/issues/84) で作る。ワークフローができたら、この段落をワークフローの説明に合わせて見直す）: PR を main にマージすると apply のジョブが動き出し、Environment `terraform-apply` の承認待ちで止まる。承認できる人が、Actions の画面でその実行を開き、「Review deployments」から `terraform-apply` を選んで「Approve and deploy」を押すと apply が進む。承認できるのは、このスクリプトを実行した人だけ。ワークフローの apply のジョブには `environment: terraform-apply` と、大文字と小文字も同じに書く（名前が違うと、apply 用 SA を借りられない）。
+apply の流れ（ワークフローの動きは 7 章）: PR を main にマージすると apply のジョブが動き出し、Environment `terraform-apply` の承認待ちで止まる。承認できる人が、Actions の画面でその実行を開き、「Review deployments」から `terraform-apply` を選んで「Approve and deploy」を押すと apply が進む。承認できるのは、このスクリプトを実行した人だけ。ワークフローの apply のジョブには `environment: terraform-apply` と、大文字と小文字も同じに書く（名前が違うと、apply 用 SA を借りられない）。
 
 スクリプトが作る物（無ければ作り、あれば、このスクリプトが決めた設定に直す）:
 
 - API の有効化（`iamcredentials`、`sts`。ほかに、スクリプト自身が使う `iam`、`cloudresourcemanager`、`storage`）
 - state を置くバケット（バージョニング〔上書きや削除の前の版をバケットに残す設定〕あり、公開を防ぐ設定）
-- Actions のログを置くバケット（30 日で自動削除、公開を防ぐ設定）。state のバケットとは別にする。plan はどのブランチからも動くので、同じバケットだとログを書く権限が state にも届くため
+- Actions のログを置くバケット（30 日で自動削除、公開を防ぐ設定）。plan 用 SA と apply 用 SA は、ファイルを作れるだけで、読む・上書きする・消すことはできない（`roles/storage.objectCreator`）。state のバケットとは別にする。plan はどのブランチからも動くので、同じバケットだとログを書く権限が state にも届くため
 - GitHub 用の WIF のプールとプロバイダ（名前はどちらも `github`）。このリポジトリのトークンだけを通す。リポジトリは名前ではなく番号（下の「リポジトリの番号で絞る理由」）で見分ける。プロバイダの説明（Cloud Console に出る）には `GitHub Actions: <オーナー>/<リポジトリ名>` を入れる
 - plan 用 SA（`tf-plan`）と apply 用 SA（`tf-apply`）。plan 用はこのリポジトリ（番号で見分ける）のどのブランチからでも借りられ、apply 用は Environment `terraform-apply` を通ったジョブからだけ借りられる。どちらの SA も、借りられるのは決めた 1 つの相手だけで、スクリプトはそれ以外の借りる許可（`roles/iam.workloadIdentityUser`）があれば外す
 - Terraform の最初の state（state のバケットの `gcp/default.tfstate`）。無いときだけ、Terraform 自身に作らせ、plan で「変更なし」になることを確かめる（下の 6-5）
 - GitHub の Environment `terraform-apply`。承認できる人（required reviewers）は、スクリプトを実行した gh のログインユーザー 1 人。main ブランチのジョブだけが通れる。実行した人が自分で承認できるように、self-review（ジョブを動かした人の承認）は禁止しない（禁止すると、承認できる人が 1 人のときに誰も承認できなくなる）
+- GitHub の Actions の設定のうち、フォークからの PR でワークフローを動かす前に承認を求める設定。外部の人（このリポジトリのオーナーや共同作業者でない人）のフォークからの PR は、初めての人かどうかに関わらず全部、承認されるまでワークフローを動かさない。画面では Settings → Actions → General の「Require approval for all external contributors」にあたる。理由は 7-1。今の設定は `gh api repos/<オーナー>/<リポジトリ名>/actions/permissions/fork-pr-contributor-approval` で見られ、`"approval_policy":"all_external_contributors"` ならこの設定になっている
 - GitHub Secrets 11 個（下の表）
 
 リポジトリの番号で絞る理由: リポジトリの名前は、消したり改名したりした後に、別の人が同じ名前で作り直せる。番号は GitHub が付ける値で、使い回されない。スクリプトは番号を GitHub から取るので、渡す値は増えない。Cloud Console のプロバイダの条件（`assertion.repository_id == '<番号>'`）と照らし合わせたいときは、`gh api repos/<オーナー>/<リポジトリ名> --jq .id` で番号を調べる。
@@ -334,7 +335,7 @@ apply の流れ（ワークフローは [Issue #84](https://github.com/hirobirof
 
 今の設定は `gh api repos/<オーナー>/<リポジトリ名>/actions/oidc/customization/sub` で見られる。`"use_default":true` と `"use_immutable_subject":false` があれば既定の形。違うときは、まず誰がなぜ変えたかを確かめる（ほかのクラウドとの WIF が、その形を前提にしていることがある）。既定に戻してよければ、GitHub の REST API の文書（リポジトリの OIDC の `sub` の設定を変える API）に従って戻してから、スクリプトを動かし直す。
 
-GCP 側では、トークンの `sub` をそのまま SA を借りる相手の名前（`google.subject`）にしていて、これは 127 文字までに収める必要がある。plan のワークフローを `pull_request` で動かせば `sub` は短い。ブランチへの push で動かすと、`sub` にブランチ名が入るので、長いブランチ名では GCP に入れない。
+GCP 側では、トークンの `sub` をそのまま SA を借りる相手の名前（`google.subject`）にしていて、これは 127 文字までに収める必要がある。plan のワークフローを `pull_request` で動かせば `sub` は短い。ブランチへの push や、手動の実行（`workflow_dispatch`）で動かすと、`sub` にブランチ名が入るので、長いブランチ名では GCP に入れない。
 
 ### 6-1. 前提
 
@@ -342,7 +343,7 @@ GCP 側では、トークンの `sub` をそのまま SA を借りる相手の�
 - Google Cloud CLI（`gcloud`）と GitHub CLI（`gh`）が入っている
 - Docker Desktop が起動している（macOS・Linux では Docker が動いている）。最初の state を作る Terraform は、HashiCorp の公式の Docker イメージ（`hashicorp/terraform`）で動かすので、Terraform をこの PC に入れなくてよい。使う版はスクリプトの中で固定してあり、PC ごとの版の違いが出ない。state がすでにあれば Docker は使わない。初めて動かすときは、Docker Hub からイメージ（数十 MB）を取ってくる。Docker が動いていないと、スクリプトは state を作る所で止まり、Environment と Secrets はまだ作られていない。Docker を起動してから、動かし直せばよい
 - `gcloud auth login` が済んでいる。そのアカウントは、対象プロジェクトのオーナー（`roles/owner`）であること
-- `gh auth login` が済んでいる。Secrets と Environment を作れる権限（このリポジトリの管理者）があること
+- `gh auth login` が済んでいる。Secrets と Environment を作り、Actions の設定を変えられる権限（このリポジトリの管理者）があること
 - apply を承認する人（リポジトリのオーナー）本人の gh のログインで動かす。承認できる人は、実行した人になるため
 - required reviewers は、GitHub の無料プランでは公開リポジトリでだけ使える。非公開のリポジトリで動かすと、スクリプトは Environment を作る所で、GitHub のエラーを出して止まる（そこまでに作った GCP の物と state は残り、Secrets はまだ登録されていない）
 
@@ -405,7 +406,7 @@ Secrets の使い道: `GCP_PROJECT_ID` から `LOG_BUCKET` までの 6 つは、
 - Terraform は、state を書き換えるときに、バケットにロックのファイルを作って同時に動かないようにする。plan 用 SA は state を読むだけにしてあるので、Actions の plan はロックを取らない設定（`-lock=false`）で動かす
 - ただし、読むだけの権限では最初の state を作れない。state のファイルが無いと、Terraform は `terraform init` の途中で空の state を書こうとし、そのときロックのファイルも作るため。この動きは `-lock=false` では止まらない
 - そのため、スクリプトは state が無いときだけ、実行した人のログイン（プロジェクトのオーナー）で Terraform 自身に state を作らせ（`terraform init`）、続けて `terraform plan` で「変更なし」になることを確かめる。state のファイルを手で書いて置くことはしない。Terraform への認証は、`gcloud auth print-access-token` で取ったアクセストークンを環境変数で渡す（値は画面にもコマンドの引数にも出さない）
-- state は、state のバケットの中の `gcp/default.tfstate` にできる（Terraform の backend の設定の prefix が `gcp`）。Terraform の設定を書くとき（[Issue #84](https://github.com/hirobirofran/food-inventory-app/issues/84)）は、backend の設定を同じ prefix にする。違うと、別の空の state を見に行く
+- state は、state のバケットの中の `gcp/default.tfstate` にできる（Terraform の backend の設定の prefix が `gcp`）。Terraform の設定（`infra/terraform/versions.tf`）の backend も、同じ prefix にしてある。変えると、別の空の state を見に行く
 - apply の途中の state を plan が読むことはありうる。plan と apply は、同じ concurrency グループ（GitHub Actions で、同じグループの実行を同時に走らせず 1 本ずつ並べる設定）で動かして、これを避ける
 - 読むだけの権限で plan が通ることは、Terraform の公式文書には書かれていない（公式文書は Storage Object Admin を求めている）。Terraform の設定を入れた後の PR で、最初に Actions の plan を動かすときに確かめる。plan が権限の不足で失敗したら、この節を見直す
 
@@ -418,6 +419,65 @@ Secrets の使い道: `GCP_PROJECT_ID` から `LOG_BUCKET` までの 6 つは、
 - Docker のイメージは [Docker Hub の hashicorp/terraform](https://hub.docker.com/r/hashicorp/terraform)。スクリプトは版とダイジェスト（イメージの中身から計算した値）の両方で固定している（`infra/bootstrap/bootstrap.sh` の `TF_VERSION` と `TF_IMAGE`）
 - 公式の [gcs バックエンドのページ](https://developer.hashicorp.com/terraform/language/backend/gcs)は "Storage Object Admin" を求める。ロックを取る使い方が前提と読める
 - `roles/storage.objectViewer` は `storage.objects.get` と `storage.objects.list` を含む（`gcloud iam roles describe roles/storage.objectViewer` で 2026-10-27 に確認）
+
+---
+
+## 7. Terraform の plan と apply（GitHub Actions）
+
+GCP の設定は `infra/terraform/` に書き、`.github/workflows/terraform.yml` が GitHub Actions で plan と apply を動かす。GCP に入るときは、6 章で作った WIF と 2 つの SA を使う。識別子は 6-4 の GitHub Secrets から渡し、リポジトリには書かない。
+
+### 7-1. いつ何が動くか
+
+| きっかけ | 動くもの | 使う SA |
+|---|---|---|
+| main に向けた PR で、`infra/terraform/` か `terraform.yml` を変えるもの（Dependabot とフォークからの PR を除く） | `terraform fmt -check`、`validate`、plan（state のロックを取らない） | plan 用 SA |
+| `infra/terraform/` の変更が main に入る（PR のマージ） | Environment `terraform-apply` の承認を待ってから、plan と apply | apply 用 SA |
+| 手動の実行（Actions の画面の「Run workflow」か `gh workflow run terraform.yml --ref <ブランチ>`） | plan だけ（apply はしない） | plan 用 SA |
+
+- 変更のレビューは、PR の plan の要約で行う。承認の後の apply のジョブは、直前にもう一度 plan して、その結果をそのまま apply する
+- Dependabot が起こした PR と、フォークからの PR では、plan を自動では動かさない。どちらの実行にも通常の Secrets が渡らず、必ず失敗するため。Dependabot の PR が Terraform やこのワークフローに関わるときは、そのブランチを指定して手で実行する（人が起こした実行には Secrets が渡る）。Dependabot のブランチ名は長いことがあり、手動の実行では `sub` が 127 文字を超えて GCP に入れないことがある（6 章）。そのときは、短い名前のブランチに同じコミットを push し、そのブランチを指定して動かす
+- 外部の人（このリポジトリのオーナーや共同作業者でない人）のフォークからの PR では、リポジトリの管理者が PR の画面で承認するまで、ワークフローそのものが動かない（6 章のスクリプトが入れる設定。`ci.yml` の lint やテストも、承認するまで動かない）。今のワークフローは、フォークからの PR に Secrets を渡さず、GCP にも入らないので、承認しても GCP の権限は渡らない。この設定は、将来ワークフローを書き間違えて、フォークからの PR に Secrets が渡るようになったときの最後の守りにする。承認する前に、その PR が `.github/workflows/` を変えていないかを確かめる。画面で設定を変えても、スクリプトを動かし直すとこの設定に戻る
+- plan と apply のジョブは、同じ concurrency グループ（GitHub Actions で、同じグループのジョブを同時に走らせない設定）で動く。走っているジョブがあると、次のジョブは待つ。待てるのは既定では 1 本だけで、さらに次のジョブが来ると、待っていたほうは取り消される。このワークフローは `queue: max` を指定して、待てる数を最大 100 本にしている。100 本を超えた分は取り消される（[GitHub の仕様](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)）
+- apply のジョブは、Environment `terraform-apply` の承認を待っている間も、このグループでは「走っている」扱いになることがある。そうなると、承認か却下が済むまで、後から来た PR の plan や手動の plan も待たされる（実際にそうなるかは、最初の apply のときに確かめる）。plan と apply を別のグループに分けないのは、apply の途中の state を plan が読まないようにするため（6-5）。承認待ちの apply をすぐ承認しないときは、その実行の画面で却下（Reject）する。後で apply するときは、その実行を開いて「Re-run all jobs」を押す
+- apply のジョブが取り消された（Cancelled）ときは、Actions の画面で main への push の実行を新しい順に見る。取り消されたのが一番新しい push の実行なら、それを開いて「Re-run all jobs」を押す。それより新しい push の apply が成功していれば、動かし直さなくてよい（新しいほうが、最新の設定を apply している）
+- apply のジョブは、最初（認証や plan より前）に、`infra/terraform/` の中身が今の main の先頭と同じかを確かめる。違えば（その後に `infra/terraform/` を変えたコミットがあれば）、認証・plan・apply を全部飛ばしてジョブを成功で終え、ログに「main の先頭と infra/terraform の中身が違うので適用しない」と出る。古い実行を間違えて動かし直したり、承認の順番が前後したりしても、新しい変更を古い設定で戻さないため。新しいほうの変更は、そのコミットの push の apply が反映する。コミットそのものではなく中身を比べるので、その後にアプリだけを変えたコミットが main に入っていても、apply は動く
+
+### 7-2. Actions のログに出るもの
+
+公開リポジトリの Actions のログは、GitHub にログインした人なら誰でも読める（[GitHub Docs](https://docs.github.com/en/actions/how-tos/monitor-workflows/use-workflow-run-logs)）。Secrets の値は `***` に伏せられるが、Terraform が GCP から読んだ値（SA の数字の ID など）は伏せられない。そのため、Terraform の出力（init・plan・apply）は全部ファイルに書き、Actions のログには次の 3 つだけを出す。
+
+- plan の要約: リソースごとのアドレス・操作（`create`、`update`、`delete`、`no-op` など）・取り込み（import）かどうかと、それぞれの件数。`terraform show -json` の出力を `infra/terraform/plan-summary.jq` で絞ったもの。属性の値は出さない
+- 各段階（init・plan・apply）の成功か失敗か
+- 全文の置き場所（ログのバケットの `logs/<実行の ID>-<試行回数>-<plan か apply>.txt`）。実行の ID は、実行の画面の URL の `runs/` の後の数字で、画面に出る「#12」のような番号とは別。試行回数は「Re-run」した回数に 1 を足した数（初回は 1）
+
+`fmt` と `validate` の出力は、ファイルの名前とエラーの箇所だけで識別子を含まないので、そのままログに出る。plan のファイル（値を全部含む）は Actions の成果物にせず、plan を PR のコメントにも書かない（PR のコメントは伏せ字にならないため）。
+
+全文のアップロードに失敗すると、ログに「アップロード失敗」と出る。plan のジョブは、それでも失敗にしない（plan の成否は要約と同じステップで分かり、全文は plan を動かし直せば作り直せる）。apply のジョブは失敗にする（apply は GCP を変えるので、記録が残らないことに気づけるようにする）。
+
+### 7-3. 失敗したときに全文を読む
+
+ログのバケットは 30 日で中身を消す（6 章）。それより前に読む。
+
+1. Actions の画面で、失敗した実行の「全文を上げる」のステップを開き、ステップのログに出る `logs/` で始まる置き場所を、そのまま控える。ステップのログに置き場所が無いときは、実行の ID と試行回数（7-2）から組み立てる
+2. 対象プロジェクトのオーナーのアカウントで `gcloud auth login` が済んだ状態で、次を動かす。`<LOG_BUCKET>` は 6-4 の表の `LOG_BUCKET` の値に置き換える
+
+   ```bash
+   gcloud storage cat gs://<LOG_BUCKET>/logs/<実行の ID>-<試行回数>-plan.txt
+   ```
+
+   apply の失敗なら、末尾を `-apply.txt` にする。置き場所が分からないときは、`gcloud storage ls gs://<LOG_BUCKET>/logs/` で一覧を見る
+
+全文には、プロジェクト ID や SA のメールアドレスなどの識別子がそのまま入っている。Issue や PR、チャットに貼らず、原因の要約だけを書く。plan 用 SA と apply 用 SA は、ログのバケットにファイルを作れるだけで、読めない（6 章）。
+
+### 7-4. Claude Code が apply を承認しないようにする設定
+
+このリポジトリで使う Claude Code（AI のコーディング支援ツール）は、オーナーと同じ gh のログインで動く。GitHub の API には、画面の「Approve and deploy」と同じことをする API と、Environment の承認者を変えたり Environment を消したりする API がある。Environment を消すと、次の apply のジョブは承認なしで進む（ワークフローが名前で参照すると、GitHub は保護の規則の無い Environment を作り直すため。[GitHub Docs](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments)）。Claude Code が誤ってこれらを呼ばないように、`.claude/settings.json` の `permissions.deny` で、次のどれかを含む `gh` のコマンドを止めている。
+
+- `pending_deployments`（承認待ちのデプロイの REST API）
+- `environments`（Environment の REST API。読むだけのコマンドも止まる）
+- GraphQL の `approveDeployments`・`rejectDeployments`・`createEnvironment`・`updateEnvironment`・`deleteEnvironment`
+
+これは誤りを防ぐための設定で、わざと回り込むことは防げない。止まらない例: スクリプトの中から呼ぶ `gh`、`gh.exe` やパスを付けた呼び方、`curl` や `Invoke-RestMethod`、GraphQL の文をファイルから読ませる書き方、GitHub の MCP のツール。逆に、PR の本文などに `environments` の単語が入るだけでも止まるので、本文はファイルにして `--body-file` で渡す。
 
 ---
 

@@ -49,11 +49,11 @@ env:
 jobs:
   plan:
     # Dependabot が起こした実行と、フォークからの PR の実行には、通常の Secrets が渡らず plan が必ず失敗するので、
-    # 動かさない。Dependabot の PR は、上の workflow_dispatch で人が動かす（人が起こした実行には Secrets が渡る）。
-    # 手動の実行には pull_request が無いので、2 つ目の条件は github.repository どうしの比較になり、通る
+    # 動かさない。Dependabot の PR は、上の workflow_dispatch で人が動かす（人が起こした実行には Secrets が渡る）
     if: >-
       github.actor != 'dependabot[bot]'
-      && (github.event.pull_request.head.repo.full_name || github.repository) == github.repository
+      && (github.event_name == 'workflow_dispatch'
+          || github.event.pull_request.head.repo.full_name == github.repository)
     # 既定の 6 時間だと、GCP が応答しないときに runner を長くふさぐ
     timeout-minutes: 30
     runs-on: ubuntu-latest

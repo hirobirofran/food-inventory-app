@@ -72,8 +72,11 @@ variable "owner_email" {
   type        = string
   nullable    = false
 
+  # 形が誤った値（空白や user: の接頭辞が混ざった値）でも plan は通り、apply が、借りる許可を付ける所で
+  # IAM に拒否されて途中で止まる。そのときは、先に作れた物（プールなど）だけが反映された状態になる。
+  # それを plan で止めるため、空白と : を含まず、@ が 1 つの形かを確かめる
   validation {
-    condition     = var.owner_email != ""
-    error_message = "owner_email が空です。Secret OWNER_EMAIL を確かめてください。"
+    condition     = can(regex("^[^\\s:@]+@[^\\s:@]+$", var.owner_email))
+    error_message = "owner_email が空か、メールアドレスの形ではありません（空白や「user:」を含めず、@ を 1 つだけ含む形）。Secret OWNER_EMAIL を確かめてください。"
   }
 }

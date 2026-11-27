@@ -326,13 +326,15 @@ get_bound() {
 }
 
 # run_bind <project|sa|bucket> <対象> <メンバー> <ロール>  ... 付与を 1 回試す
+# project と sa に --condition=None を付けるのは、ポリシーに条件付きの付与が 1 件でもあると、gcloud が
+# 条件を指定しない追加を、対話なしでは拒むため。付けるのは、get_bound が数える条件なしの付与
 run_bind() {
   local kind="$1" target="$2" member="$3" role="$4"
   case "$kind" in
     project) gcloud projects add-iam-policy-binding "$target" --member "$member" --role "$role" \
                --condition=None --quiet ;;
     sa)      gcloud iam service-accounts add-iam-policy-binding "$target" --project "$GCP_PROJECT_ID" \
-               --member "$member" --role "$role" --quiet ;;
+               --member "$member" --role "$role" --condition=None --quiet ;;
     bucket)  gcloud storage buckets add-iam-policy-binding "gs://$target" --member "$member" \
                --role "$role" --quiet ;;
   esac

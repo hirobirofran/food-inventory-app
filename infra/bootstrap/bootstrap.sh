@@ -7,7 +7,7 @@
 #   - Terraform の state を置くバケット（バージョニングあり）
 #   - Actions のログを置くバケット（30 日で自動削除）
 #   - GitHub 用の Workload Identity Federation（WIF）のプールとプロバイダ
-#   - plan 用と apply 用のサービスアカウント（SA）と、その権限
+#   - plan 用と apply 用のサービスアカウント（SA）と、その権限（apply 用 SA が、アプリの SA を管理する権限を含む）
 #   - Terraform の最初の state（無いときだけ。Docker の Terraform に作らせ、plan で「変更なし」を確かめる）
 #   - GitHub の Environment（apply のジョブを、承認されるまで止める。承認できるのは実行した人だけ）
 #   - GitHub の Actions の設定（外部の人のフォークからの PR は、承認されるまでワークフローを動かさない）
@@ -26,6 +26,8 @@ REGION="asia-northeast1"
 POOL_ID="github"
 PROVIDER_ID="github"
 PLAN_SA_NAME="tf-plan"
+# infra/terraform/service_accounts.tf の apply_sa_name にも同じ名前を書く（Terraform が、アプリの SA のポリシーに
+# この SA の許可を入れるため）。片方を変えるときは、もう片方も変える。ずれると、apply がこの SA の許可を外す plan になる
 APPLY_SA_NAME="tf-apply"
 # apply のジョブが通る GitHub の Environment の名前。ワークフローの environment: にも同じ名前を書く
 APPLY_ENV="terraform-apply"
@@ -40,7 +42,7 @@ TF_IMAGE="hashicorp/terraform:${TF_VERSION}@sha256:4d1b496a256f2989bccdb04b9104a
 
 REQUIRED_VARS=(
   GCP_PROJECT_ID GITHUB_REPO TF_STATE_BUCKET LOG_BUCKET APP_SA_EMAIL
-  VERCEL_TEAM_SLUG VERCEL_PROD_PROJECT VERCEL_DEMO_PROJECT OWNER_EMAIL
+  VERCEL_TEAM_SLUG VERCEL_TEAM_ID VERCEL_PROD_PROJECT VERCEL_DEMO_PROJECT OWNER_EMAIL
 )
 
 say() { printf '[%s] %s\n' "$1" "$2"; }
@@ -326,13 +328,15 @@ get_bound() {
 }
 
 # run_bind <project|sa|bucket> <対象> <メンバー> <ロール>  ... 付与を 1 回試す
+# project と sa に --condition=None を付けるのは、ポリシーに条件付きの付与が 1 件でもあると、gcloud が
+# 条件を指定しない追加を、対話なしでは拒むため。付けるのは、get_bound が数える条件なしの付与
 run_bind() {
   local kind="$1" target="$2" member="$3" role="$4"
   case "$kind" in
     project) gcloud projects add-iam-policy-binding "$target" --member "$member" --role "$role" \
                --condition=None --quiet ;;
     sa)      gcloud iam service-accounts add-iam-policy-binding "$target" --project "$GCP_PROJECT_ID" \
-               --member "$member" --role "$role" --quiet ;;
+               --member "$member" --role "$role" --condition=None --quiet ;;
     bucket)  gcloud storage buckets add-iam-policy-binding "gs://$target" --member "$member" \
                --role "$role" --quiet ;;
   esac
@@ -417,11 +421,40 @@ bind_role bucket "$LOG_BUCKET" "serviceAccount:${APPLY_SA}" roles/storage.object
 bind_role bucket "$LOG_BUCKET" "serviceAccount:${PLAN_SA}" roles/storage.legacyBucketReader
 bind_role bucket "$LOG_BUCKET" "serviceAccount:${APPLY_SA}" roles/storage.legacyBucketReader
 
-# プロジェクトの権限（最初の候補。足りない分が分かったらここに足して動かし直す）
+# unbind_project_role <メンバー> <ロール>  ... プロジェクト全体に付いていれば外す。無ければ何もしない
+unbind_project_role() {
+  local member="$1" role="$2" existing
+  existing="$(get_bound project "$GCP_PROJECT_ID" "$member" "$role")" \
+    || die "プロジェクトの IAM ポリシーを読めませんでした。"
+  if [ -z "$existing" ]; then
+    say "そのまま" "project $GCP_PROJECT_ID: $role は付いていない"
+    return 0
+  fi
+  gcloud projects remove-iam-policy-binding "$GCP_PROJECT_ID" --member "$member" --role "$role" \
+    --condition=None --quiet >/dev/null \
+    || die "project $GCP_PROJECT_ID から $role を外せませんでした。"
+  say "外した" "project $GCP_PROJECT_ID: $role"
+}
+
+# プロジェクトとアプリの SA の権限（最初の候補。足りない分が分かったらここに足して動かし直す）
 bind_role project "$GCP_PROJECT_ID" "serviceAccount:${PLAN_SA}" roles/iam.securityReviewer
 bind_role project "$GCP_PROJECT_ID" "serviceAccount:${PLAN_SA}" roles/iam.workloadIdentityPoolViewer
+# プールとプロバイダを管理する権限は、プロジェクト全体に付ける。特定のプールに絞る方法が、Google の公式文書に見つからなかったため。
+# 代わりに、Terraform が作る Vercel 用のプールとプロバイダに prevent_destroy を付け、誤って消す変更を plan で止める
+# （止まらない変更があり、その範囲は infra/terraform/vercel_wif.tf のコメント）。
+# GitHub 用のプールとプロバイダはこのスクリプトが作る物で Terraform の管理外なので、この守りが無く、apply 用 SA が変えたり消したりできる。
 bind_role project "$GCP_PROJECT_ID" "serviceAccount:${APPLY_SA}" roles/iam.workloadIdentityPoolAdmin
-bind_role project "$GCP_PROJECT_ID" "serviceAccount:${APPLY_SA}" roles/iam.serviceAccountAdmin
+
+# SA を管理する権限は、Terraform が管理するアプリの SA 1 つにだけ付ける。プロジェクト全体に付けると、
+# apply 用 SA が、このプロジェクトのどの SA も作り替えたり消したり、借りる許可を書き換えたりできてしまう。
+# 先に SA 側へ付けてからプロジェクト全体を外す順にするのは、途中で止まっても、権限が無い状態にならないため。
+# 外すのは、前の版のスクリプトが付けた分。何度動かしても同じ結果になる（外れていれば何もしない）。
+# Terraform はアプリの SA のポリシー全体を決めるので、同じ許可を infra/terraform/service_accounts.tf にも書いてある。
+# ここで付けるのは、最初の apply の前から要るため。片方を変えるときは、もう片方も変える。
+# ずれると、apply がこの許可を外す plan になる。外れたときは、先に 2 か所の名前をそろえてから、
+# このスクリプトを動かし直し、apply を動かし直す
+bind_role sa "$APP_SA_EMAIL" "serviceAccount:${APPLY_SA}" roles/iam.serviceAccountAdmin
+unbind_project_role "serviceAccount:${APPLY_SA}" roles/iam.serviceAccountAdmin
 
 # ---------------------------------------------------------------------
 # 8. 最初の state
@@ -594,7 +627,7 @@ set_secret TF_PLAN_SA "$PLAN_SA" "SA ${PLAN_SA_NAME} のメールアドレス"
 set_secret TF_APPLY_SA "$APPLY_SA" "SA ${APPLY_SA_NAME} のメールアドレス"
 # 環境変数の値をそのまま登録するもの
 for name in GCP_PROJECT_ID TF_STATE_BUCKET LOG_BUCKET APP_SA_EMAIL \
-    VERCEL_TEAM_SLUG VERCEL_PROD_PROJECT VERCEL_DEMO_PROJECT OWNER_EMAIL; do
+    VERCEL_TEAM_SLUG VERCEL_TEAM_ID VERCEL_PROD_PROJECT VERCEL_DEMO_PROJECT OWNER_EMAIL; do
   set_secret "$name" "${!name}" "環境変数 $name"
 done
 

@@ -26,6 +26,8 @@ REGION="asia-northeast1"
 POOL_ID="github"
 PROVIDER_ID="github"
 PLAN_SA_NAME="tf-plan"
+# infra/terraform/service_accounts.tf の apply_sa_name にも同じ名前を書く（Terraform が、アプリの SA のポリシーに
+# この SA の許可を入れるため）。片方を変えるときは、もう片方も変える。ずれると、apply がこの SA の許可を外す plan になる
 APPLY_SA_NAME="tf-apply"
 # apply のジョブが通る GitHub の Environment の名前。ワークフローの environment: にも同じ名前を書く
 APPLY_ENV="terraform-apply"
@@ -446,7 +448,10 @@ bind_role project "$GCP_PROJECT_ID" "serviceAccount:${APPLY_SA}" roles/iam.workl
 # SA を管理する権限は、Terraform が管理するアプリの SA 1 つにだけ付ける。プロジェクト全体に付けると、
 # apply 用 SA が、このプロジェクトのどの SA も作り替えたり消したり、借りる許可を書き換えたりできてしまう。
 # 先に SA 側へ付けてからプロジェクト全体を外す順にするのは、途中で止まっても、権限が無い状態にならないため。
-# 外すのは、前の版のスクリプトが付けた分。何度動かしても同じ結果になる（外れていれば何もしない）
+# 外すのは、前の版のスクリプトが付けた分。何度動かしても同じ結果になる（外れていれば何もしない）。
+# Terraform はアプリの SA のポリシー全体を決めるので、同じ許可を infra/terraform/service_accounts.tf にも書いてある。
+# ここで付けるのは、最初の apply の前から要るため。片方を変えるときは、もう片方も変える。
+# ずれると、apply がこの許可を外す plan になる。外れたときは、このスクリプトを動かし直して戻す
 bind_role sa "$APP_SA_EMAIL" "serviceAccount:${APPLY_SA}" roles/iam.serviceAccountAdmin
 unbind_project_role "serviceAccount:${APPLY_SA}" roles/iam.serviceAccountAdmin
 

@@ -538,7 +538,7 @@ Re-run では試行回数が 1 つ増えるので、全文は新しい名前で�
 
 Vercel の相手には、デモプロジェクトの Preview を入れている。これは、Vercel の Git fork protection を前提にしている。Git fork protection は、フォークからの PR を、チームの人が認めるまでデプロイしない仕組みで、環境変数と Vercel のトークンが漏れないようにするためのもの。プロジェクトの設定の Security で無効にできる（[Vercel のドキュメント](https://vercel.com/docs/project-configuration/security-settings#git-fork-protection)）。無効にすると、外部の人のフォークからの PR のコードが、デモの Preview としてこの SA を借りられる。Git fork protection の対象はフォークからの PR だけで、このリポジトリのブランチの PR（Dependabot の PR を含む）は、デモの Preview としてデプロイされ、この SA を借りられる。
 
-チームの slug かプロジェクトの名前を変えると、トークンの sub が変わり（slug なら発行元も変わる）、アプリが SA を借りられなくなる（[Vercel のドキュメント](https://vercel.com/docs/oidc/reference#team-and-project-name-changes)）。sub は Google Cloud の `google.subject` になり 127 文字までなので（6 章）、slug と名前が長いときも借りられない。
+チームの slug かプロジェクトの名前を変えると、トークンの sub が変わり（slug なら発行元も変わる）、アプリが SA を借りられなくなる（[Vercel のドキュメント](https://vercel.com/docs/oidc/reference#team-and-project-name-changes)）。sub は Google Cloud の `google.subject` になり、長さに上限がある（6 章）。slug と名前が長くて上限を超えるときは、plan が止まる（`service_accounts.tf` の確かめ）。
 
 名前を変えたときは、新しい値を Secrets に入れ直す（変え方は 6-4）。Secrets を変えただけでは apply は動かない（いつ動くかは 7-1）。
 

@@ -42,6 +42,12 @@ locals {
     "project:${var.vercel_demo_project}:environment:production",
     "project:${var.vercel_demo_project}:environment:preview",
   ]
+
+  # トークンの sub そのもの。下の長さの確かめと、借りる相手の名前（principal://）を同じ値で作るため、1 か所で組み立てる
+  vercel_borrower_subs = [for subject in local.vercel_borrower_subjects : "owner:${var.vercel_team_slug}:${subject}"]
+
+  # google.subject の長さの上限（https://docs.cloud.google.com/iam/docs/workload-identity-federation）
+  google_subject_max_length = 127
 }
 
 # google_service_account_iam_binding は、このロールの条件なしの付与を、members の列挙だけにする。
@@ -63,9 +69,18 @@ resource "google_service_account_iam_binding" "app_workload_identity_user" {
   service_account_id = google_service_account.app.name
   role               = "roles/iam.workloadIdentityUser"
   members = [
-    for subject in local.vercel_borrower_subjects :
-    "principal://iam.googleapis.com/${google_iam_workload_identity_pool.vercel.name}/subject/owner:${var.vercel_team_slug}:${subject}"
+    for sub in local.vercel_borrower_subs :
+    "principal://iam.googleapis.com/${google_iam_workload_identity_pool.vercel.name}/subject/${sub}"
   ]
+
+  # sub が上限を超えても、plan と apply は通り、アプリが SA を借りるとき（トークンの交換）に初めて失敗する。
+  # 気付くのが遅れないよう、plan で止める。bootstrap.sh も、GitHub 用の sub で同じ上限を確かめている
+  lifecycle {
+    precondition {
+      condition     = alltrue([for sub in local.vercel_borrower_subs : length(sub) <= local.google_subject_max_length])
+      error_message = "Vercel の相手の sub が、google.subject の上限（${local.google_subject_max_length} 文字）を超えます。Secret VERCEL_TEAM_SLUG・VERCEL_PROD_PROJECT・VERCEL_DEMO_PROJECT の長さを確かめてください。"
+    }
+  }
 }
 
 # seed が、オーナーの Google アカウントで、鍵なしにこの SA のトークンを取るため。

@@ -7,7 +7,7 @@
 #   - Terraform の state を置くバケット（バージョニングあり）
 #   - Actions のログを置くバケット（30 日で自動削除）
 #   - GitHub 用の Workload Identity Federation（WIF）のプールとプロバイダ
-#   - plan 用と apply 用のサービスアカウント（SA）と、その権限
+#   - plan 用と apply 用のサービスアカウント（SA）と、その権限（apply 用 SA が、アプリの SA を管理する権限を含む）
 #   - Terraform の最初の state（無いときだけ。Docker の Terraform に作らせ、plan で「変更なし」を確かめる）
 #   - GitHub の Environment（apply のジョブを、承認されるまで止める。承認できるのは実行した人だけ）
 #   - GitHub の Actions の設定（外部の人のフォークからの PR は、承認されるまでワークフローを動かさない）
@@ -432,11 +432,13 @@ unbind_project_role() {
   say "外した" "project $GCP_PROJECT_ID: $role"
 }
 
-# プロジェクトの権限（最初の候補。足りない分が分かったらここに足して動かし直す）
+# プロジェクトとアプリの SA の権限（最初の候補。足りない分が分かったらここに足して動かし直す）
 bind_role project "$GCP_PROJECT_ID" "serviceAccount:${PLAN_SA}" roles/iam.securityReviewer
 bind_role project "$GCP_PROJECT_ID" "serviceAccount:${PLAN_SA}" roles/iam.workloadIdentityPoolViewer
 # プールとプロバイダを管理する権限は、プロジェクト全体に付ける。特定のプールに絞る方法が、Google の公式文書に見つからなかったため。
-# 代わりに、Terraform が作るプールとプロバイダに prevent_destroy を付け、誤って消す変更を plan で止める。
+# 代わりに、Terraform が作る Vercel 用のプールとプロバイダに prevent_destroy を付け、誤って消す変更を plan で止める。
+# GitHub 用のプールとプロバイダはこのスクリプトが作り、Terraform の管理外なので、この守りは無い。
+# apply 用 SA は、権限としては GitHub 用のプールとプロバイダも変えたり消したりできる。
 bind_role project "$GCP_PROJECT_ID" "serviceAccount:${APPLY_SA}" roles/iam.workloadIdentityPoolAdmin
 
 # SA を管理する権限は、Terraform が管理するアプリの SA 1 つにだけ付ける。プロジェクト全体に付けると、

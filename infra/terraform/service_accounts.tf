@@ -33,8 +33,10 @@ resource "google_service_account" "app" {
 }
 
 locals {
-  # SA を借りられる Vercel の相手（トークンの sub の、owner:<チーム>:project: より後ろ）。
-  # 本番の preview と、手元の開発用トークン（development）を入れないのは、借りる相手を、実際に使う 3 つだけにするため
+  # SA を借りられる Vercel の相手（トークンの sub の、owner:<チーム>: より後ろ）。
+  # 本番の preview を入れないのは、本番のプロジェクトでは Preview を確認に使わず、本番のデータに触らせないため（docs/SETUP.md の 4 章）。
+  # development を入れないのは、そのトークンが vercel env pull で手元の .env.local に書き出され、Vercel の外に出るため
+  # （https://vercel.com/docs/oidc/access-other-services）。手元の seed は、オーナーの Google アカウントで借りる（下の app_token_creator）
   vercel_borrower_subjects = [
     "project:${var.vercel_prod_project}:environment:production",
     "project:${var.vercel_demo_project}:environment:production",
@@ -44,6 +46,8 @@ locals {
 
 # google_service_account_iam_binding は、このロールを持つ相手を members の列挙だけにする。
 # 手で足された相手は、plan に差分として出て、apply で外れる。
+# ただし、見るのはこの SA 自身に付いた許可だけ。プロジェクト全体に付けた権限は、プロジェクトのすべての SA に届くが
+# （https://docs.cloud.google.com/iam/docs/manage-access-service-accounts）、plan には出ない。
 # google_service_account_iam_policy は使わない。SA のポリシー全体を決めるので、bootstrap.sh が apply 用 SA に付けた、
 # この SA を管理する権限まで消えて、次の apply から SA を変更できなくなる。
 #
@@ -61,7 +65,10 @@ resource "google_service_account_iam_binding" "app_workload_identity_user" {
   ]
 }
 
-# seed が、オーナーの Google アカウントで、鍵なしにこの SA のトークンを取るため
+# seed が、オーナーの Google アカウントで、鍵なしにこの SA のトークンを取るため。
+# このロールにするのは、Google が SA を借りる（impersonation）ために付けるよう案内しているロールで、
+# トークンを取るのに要る iam.serviceAccounts.getAccessToken を含むため
+# （https://docs.cloud.google.com/docs/authentication/use-service-account-impersonation）
 resource "google_service_account_iam_binding" "app_token_creator" {
   service_account_id = google_service_account.app.name
   role               = "roles/iam.serviceAccountTokenCreator"

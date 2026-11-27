@@ -2,7 +2,7 @@
 # 借りる許可（どの相手が SA を借りられるか）は service_accounts.tf に書く。
 #
 # プールとプロバイダに prevent_destroy を付けるのは、消す変更を plan の段階で止めるため。
-# 消すと、Vercel のアプリが SA を借りられなくなる。消した後は、同じ ID を約 30 日使えず、作り直せない
+# 消すと、Vercel のアプリが SA を借りられなくなる。消してから 30 日のあいだは復元できるが、そのあいだは同じ ID で作り直せない
 # （https://docs.cloud.google.com/iam/docs/manage-workload-identity-pools-providers）。
 
 resource "google_iam_workload_identity_pool" "vercel" {

@@ -13,7 +13,7 @@ variable "app_sa_email" {
   nullable    = false
 }
 
-# 次の 5 つは、空のまま plan を通さないために検証する。Secret が未登録だと、ワークフローは空文字を渡す。
+# この下の変数は、空のまま plan を通さないために検証する。Secret が未登録だと、ワークフローは空文字を渡す。
 # 空のままでは、条件や借りる相手の文字列が誤ったまま plan が通り、気付かずに apply で反映してしまう。
 # error_message に値を書かないのは、検証の失敗の文に識別子を残さないため。
 # Terraform 自身が出すエラーには値が入るが、plan の出力は全文のファイルに書き、Actions のログには出さない（terraform-plan.yml）
@@ -47,6 +47,8 @@ variable "vercel_prod_project" {
   type        = string
   nullable    = false
 
+  # 名前は SA を借りる相手の名前（sub）に埋め込む。: や / が混ざると別の相手を指してしまう。
+  # 通す文字は、Vercel のプロジェクト名に使える文字（https://vercel.com/docs/project-configuration/general-settings）
   validation {
     condition     = can(regex("^[a-z0-9._-]+$", var.vercel_prod_project))
     error_message = "vercel_prod_project が空か、使えない文字を含んでいます（使えるのは小文字・数字・ピリオド・アンダースコア・ハイフン）。Secret VERCEL_PROD_PROJECT を確かめてください。"
@@ -58,6 +60,7 @@ variable "vercel_demo_project" {
   type        = string
   nullable    = false
 
+  # 文字を絞る理由は vercel_prod_project と同じ
   validation {
     condition     = can(regex("^[a-z0-9._-]+$", var.vercel_demo_project))
     error_message = "vercel_demo_project が空か、使えない文字を含んでいます（使えるのは小文字・数字・ピリオド・アンダースコア・ハイフン）。Secret VERCEL_DEMO_PROJECT を確かめてください。"
@@ -70,7 +73,7 @@ variable "owner_email" {
   nullable    = false
 
   validation {
-    condition     = can(regex("^[^@[:space:]]+@[^@[:space:]]+$", var.owner_email))
-    error_message = "owner_email が空か、メールアドレスの形ではありません。Secret OWNER_EMAIL を確かめてください。"
+    condition     = var.owner_email != ""
+    error_message = "owner_email が空です。Secret OWNER_EMAIL を確かめてください。"
   }
 }

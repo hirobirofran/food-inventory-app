@@ -532,14 +532,11 @@ Re-run では試行回数が 1 つ増えるので、全文は新しい名前で�
 
 - アプリが使う SA（`service_accounts.tf`）。もとは手で作った物を、Terraform の管理に取り込んだ。SA を消す変更は、resource ブロックが残っているあいだは、`prevent_destroy` で plan が止まる（止まらない変更は `service_accounts.tf` のコメント）。環境を作り直すときは、2-3 で手で作った SA を、`import` ブロック（[Terraform の文書](https://developer.hashicorp.com/terraform/language/block/import)）で Terraform の管理に取り込む。取り込まずに apply すると、同じ ID の SA がすでにあるので、SA を作ろうとして失敗する。apply 用 SA の、この SA 1 つに絞った権限で取り込めるかは、確かめていない
 - Vercel 用の WIF のプールとプロバイダ（`vercel_wif.tf`）。自分のチームのトークンだけを通す。チームは、名前ではなく ID で見分ける。名前は変えた後や消した後に他人が取り直せるが、ID は使い回されないため。ID の取り出し方は 6-4 の `VERCEL_TEAM_ID`。消す変更は、resource ブロックが残っているあいだは、`prevent_destroy` で plan が止まる（止まらない変更は `vercel_wif.tf` のコメント）。消してから 30 日のあいだは復元できるが、そのあいだは同じ ID で作り直せない（[Google の文書](https://docs.cloud.google.com/iam/docs/manage-workload-identity-pools-providers)）
-- アプリの SA を借りられる相手（`service_accounts.tf`）。Vercel の次の相手と、オーナーの Google アカウント（seed 用）だけ。本番プロジェクトの Preview と、手元の開発用トークン（`development`）は借りられない
-  - 本番プロジェクトの Production
-  - デモプロジェクトの Production
-  - デモプロジェクトの Preview
+- アプリの SA を借りられる相手（`service_accounts.tf`）。Vercel の相手と、オーナーの Google アカウント（seed 用）だけ。Vercel の相手は `vercel_borrower_subjects` に並べ、入れない相手の理由もそこに書いてある
 
 この SA を借りるためのロール（Vercel の相手用と、オーナー用）は、どちらも、条件なしの付与を持つ相手が Terraform に書いた相手だけになる。画面などで、これらのロールをこの SA に条件なしで手で足した相手は、plan に差分として出て、apply で外れる。相手を足すときは Terraform を直す。ただし、条件（期限など）を付けて足した相手は、Terraform が別の付与として扱うので、plan に出ず、apply でも外れない（[google プロバイダの文書](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/google_service_account_iam)）。また、プロジェクト全体に付けた権限は、そのプロジェクトのすべての SA に届くが、Terraform は見ないので plan に出ない（[Google の文書](https://docs.cloud.google.com/iam/docs/manage-access-service-accounts)）。
 
-デモプロジェクトの Preview を借りられる相手に入れているのは、Vercel の Git fork protection を前提にしている。Git fork protection は、フォークからの PR を、チームの人が認めるまでデプロイしない仕組みで、環境変数と Vercel のトークンが漏れないようにするためのもの。プロジェクトの設定の Security で無効にできる（[Vercel のドキュメント](https://vercel.com/docs/project-configuration/security-settings#git-fork-protection)）。無効にすると、外部の人のフォークからの PR のコードが、デモの Preview としてこの SA を借りられる。
+Vercel の相手には、デモプロジェクトの Preview を入れている。これは、Vercel の Git fork protection を前提にしている。Git fork protection は、フォークからの PR を、チームの人が認めるまでデプロイしない仕組みで、環境変数と Vercel のトークンが漏れないようにするためのもの。プロジェクトの設定の Security で無効にできる（[Vercel のドキュメント](https://vercel.com/docs/project-configuration/security-settings#git-fork-protection)）。無効にすると、外部の人のフォークからの PR のコードが、デモの Preview としてこの SA を借りられる。
 
 チームの slug かプロジェクトの名前を変えると、トークンの sub が変わり（slug なら発行元も変わる）、アプリが SA を借りられなくなる（[Vercel のドキュメント](https://vercel.com/docs/oidc/reference#team-and-project-name-changes)）。sub は Google Cloud の `google.subject` になり 127 文字までなので（6 章）、slug と名前が長いときも借りられない。
 

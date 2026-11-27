@@ -330,7 +330,10 @@ apply の流れ（ワークフローの動きは 7 章）: `infra/terraform/` �
 - GitHub の Actions の設定のうち、フォークからの PR でワークフローを動かす前に承認を求める設定。外部の人（このリポジトリのオーナーや共同作業者でない人）のフォークからの PR は、初めての人かどうかに関わらず全部、承認されるまでワークフローを動かさない。画面では Settings → Actions → General の「Require approval for all external contributors」にあたる。理由は 7-1。今の設定は `gh api repos/<オーナー>/<リポジトリ名>/actions/permissions/fork-pr-contributor-approval` で見られ、`"approval_policy":"all_external_contributors"` ならこの設定になっている
 - GitHub Secrets（下の表）
 
-apply 用 SA の権限: プールとプロバイダを管理する権限は、プロジェクト全体に付ける。特定のプールだけに絞る方法を、Google の公式文書に見つけられなかったため。代わりに、Terraform が作る Vercel 用のプールとプロバイダは、消す変更を plan で止める設定（`prevent_destroy`）にしている。GitHub 用のプールとプロバイダは、このスクリプトが作り、Terraform の管理外なので、この設定は無い。apply 用 SA は、権限としては GitHub 用のプールとプロバイダも変えたり消したりできる。SA を管理する権限は、Terraform が管理するアプリの SA 1 つにだけ付け、プロジェクト全体には付けない。前の版のスクリプトがプロジェクト全体に付けた分は、スクリプトが外す（先に SA 1 つへ付けてから外すので、途中で止まっても権限が無い状態にならない）。付ける権限の実物は、`infra/bootstrap/bootstrap.sh` の「プロジェクトとアプリの SA の権限」にある。
+apply 用 SA の権限（付ける権限の実物は、`infra/bootstrap/bootstrap.sh` の「プロジェクトとアプリの SA の権限」にある）:
+
+- プールとプロバイダを管理する権限は、プロジェクト全体に付ける。特定のプールだけに絞る方法を、Google の公式文書に見つけられなかったため。代わりに、Terraform が作る Vercel 用のプールとプロバイダには、消す変更を plan で止める設定（`prevent_destroy`）を付けている。GitHub 用のプールとプロバイダは、このスクリプトが作る物で Terraform の管理外なので、この設定が無く、apply 用 SA が変えたり消したりできる
+- SA を管理する権限は、Terraform が管理するアプリの SA 1 つにだけ付け、プロジェクト全体には付けない。前の版のスクリプトがプロジェクト全体に付けた分は、スクリプトが外す。先に SA 1 つへ付けてから外すので、途中で止まっても権限が無い状態にならない
 
 リポジトリの番号で絞る理由: リポジトリの名前は、消したり改名したりした後に、別の人が同じ名前で作り直せる。番号は GitHub が付ける値で、使い回されない。スクリプトは番号を GitHub から取るので、渡す値は増えない。Cloud Console のプロバイダの条件（`assertion.repository_id == '<番号>'`）と照らし合わせたいときは、`gh api repos/<オーナー>/<リポジトリ名> --jq .id` で番号を調べる。
 
@@ -365,7 +368,7 @@ GCP 側では、トークンの `sub` をそのまま SA を借りる相手の�
 
 ### 6-2. 渡す環境変数
 
-次の環境変数を、環境変数か、リポジトリ直下の `.env.local` の `名前=値` の行で渡す。環境変数があればそれを使い、無いものだけ `.env.local` から読む。足りないものがあると、足りない名前だけを並べて止まる。値はこの文書にもリポジトリにも書かない。
+次の値を、環境変数か、リポジトリ直下の `.env.local` の `名前=値` の行で渡す。環境変数があればそれを使い、無いものだけ `.env.local` から読む。足りないものがあると、足りない名前だけを並べて止まる。値はこの文書にもリポジトリにも書かない。
 
 | 名前 | 意味 |
 |---|---|
@@ -400,7 +403,7 @@ bash infra/bootstrap/bootstrap.sh
 
 ### 6-4. GitHub Secrets の表
 
-Secrets には説明を書く欄が無いので、ここに意味と取り出し方を残す。値を入れ直すときは、GitHub の Settings → Secrets and variables → Actions で、その Secret の「Update」を押して新しい値を入れる。値を変えたいときは、環境変数か `.env.local` を直してスクリプトを動かし直してもよい。Variables は使わない（公開リポジトリでは、Variables の値がログで伏せ字にならないため）。
+Secrets には説明を書く欄が無いので、ここに意味と取り出し方を残す。値を入れ直すときは、GitHub の Settings → Secrets and variables → Actions で、その Secret の「Update」を押して新しい値を入れる。値を変えたいときは、環境変数か `.env.local` を直してスクリプトを動かし直してもよい。スクリプトは、動かすたびに、渡した値と自分で組み立てた値で Secrets を上書きする。そのため、画面で値を変えたときは、`.env.local`（または環境変数）も同じ値に直す。Variables は使わない（公開リポジトリでは、Variables の値がログで伏せ字にならないため）。
 
 | 名前 | 意味 | 値の取り出し方 |
 |---|---|---|
@@ -412,7 +415,7 @@ Secrets には説明を書く欄が無いので、ここに意味と取り出し
 | `LOG_BUCKET` | ログのバケットの名前 | 同じ一覧で、30 日で削除するライフサイクルが付いているほう（`--format='value(name,lifecycle_config)'`） |
 | `APP_SA_EMAIL` | アプリが使う SA のメールアドレス | Vercel の環境変数 `GOOGLE_SERVICE_ACCOUNT_EMAIL` と同じ値。Cloud Console の「IAM と管理」→「サービス アカウント」でも見られる |
 | `VERCEL_TEAM_SLUG` | Vercel のチームの slug | Vercel ダッシュボードのチームの Settings → General の「Team URL」（`vercel.com/` の後ろの部分） |
-| `VERCEL_TEAM_ID` | Vercel のチーム ID | Vercel ダッシュボードで、チームの Settings → General を開き、下へ進んだ「Team ID」の欄（[Vercel のドキュメント](https://vercel.com/docs/accounts#find-your-team-id)）。チームの slug とは別の値。slug は名前を変えた後に他人が取り直せるが、ID は変わらず使い回されないので、Terraform はこの ID でチームを見分ける |
+| `VERCEL_TEAM_ID` | Vercel のチーム ID | Vercel ダッシュボードで、チームの Settings → General を開き、下へ進んだ「Team ID」の欄（[Vercel のドキュメント](https://vercel.com/docs/accounts#find-your-team-id)）。チームの slug とは別の値（slug ではなく ID で見分ける理由は 7-5） |
 | `VERCEL_PROD_PROJECT` | 本番プロジェクトの名前 | Vercel ダッシュボードのプロジェクト一覧 |
 | `VERCEL_DEMO_PROJECT` | デモプロジェクトの名前 | 同上 |
 | `OWNER_EMAIL` | seed で SA の権限を借りる人の Google アカウント | 本人のアカウント（`gcloud auth list`） |
@@ -528,19 +531,21 @@ Re-run では試行回数が 1 つ増えるので、全文は新しい名前で�
 `infra/terraform/` が管理するのは、次の物。
 
 - アプリが使う SA（`service_accounts.tf`）。もとは手で作った物を、Terraform の管理に取り込んだ。SA を消す変更は、`prevent_destroy` で plan が止まる
-- Vercel 用の WIF のプールとプロバイダ（`vercel_wif.tf`）。自分のチームのトークンだけを通す。チームは、名前ではなく ID で見分ける（名前は変えた後に他人が取り直せるため。6-4 の `VERCEL_TEAM_ID`）。発行元は、Vercel のチームの発行元（`https://oidc.vercel.com/<チームの slug>`）。消す変更は `prevent_destroy` で plan が止まる。消してから 30 日のあいだは復元できるが、そのあいだは同じ ID で作り直せない（[Google の文書](https://docs.cloud.google.com/iam/docs/manage-workload-identity-pools-providers)）
+- Vercel 用の WIF のプールとプロバイダ（`vercel_wif.tf`）。自分のチームのトークンだけを通す。チームは、名前ではなく ID で見分ける。名前は変えた後や消した後に他人が取り直せるが、ID は使い回されないため。ID の取り出し方は 6-4 の `VERCEL_TEAM_ID`。消す変更は `prevent_destroy` で plan が止まる。消してから 30 日のあいだは復元できるが、そのあいだは同じ ID で作り直せない（[Google の文書](https://docs.cloud.google.com/iam/docs/manage-workload-identity-pools-providers)）
 - アプリの SA を借りられる相手（`service_accounts.tf`）。Vercel の次の相手と、オーナーの Google アカウント（seed 用）だけ。本番プロジェクトの Preview と、手元の開発用トークン（`development`）は借りられない
   - 本番プロジェクトの Production
   - デモプロジェクトの Production
   - デモプロジェクトの Preview
 
-この SA に付いた借りる許可は、ロールごとに、Terraform に書いた相手だけになる。画面などでこの SA に手で足した相手は、plan に差分として出て、apply で外れる。相手を足すときは Terraform を直す。Terraform が見るのは、この SA 自身に付いた許可だけで、プロジェクト全体に付けた権限は plan に出ない。プロジェクト全体に付けた権限は、そのプロジェクトのすべての SA に届く（[Google の文書](https://docs.cloud.google.com/iam/docs/manage-access-service-accounts)）。
+この SA を借りるためのロール（Vercel の相手用と、オーナー用）は、どちらも、持つ相手が Terraform に書いた相手だけになる。画面などで、これらのロールをこの SA に手で足した相手は、plan に差分として出て、apply で外れる。相手を足すときは Terraform を直す。ただし、プロジェクト全体に付けた権限は、そのプロジェクトのすべての SA に届くが、Terraform は見ないので plan に出ない（[Google の文書](https://docs.cloud.google.com/iam/docs/manage-access-service-accounts)）。
 
 デモプロジェクトの Preview を借りられる相手に入れているのは、Vercel の Git fork protection を前提にしている。Git fork protection は、フォークからの PR を、チームの人が認めるまでデプロイしない仕組みで、環境変数と Vercel のトークンが漏れないようにするためのもの。プロジェクトの設定の Security で無効にできる（[Vercel のドキュメント](https://vercel.com/docs/project-configuration/security-settings#git-fork-protection)）。無効にすると、外部の人のフォークからの PR のコードが、デモの Preview としてこの SA を借りられる。
 
-チームの slug かプロジェクトの名前を変えると、トークンの sub が変わり（slug なら発行元も変わる）、アプリが SA を借りられなくなる（[Vercel のドキュメント](https://vercel.com/docs/oidc/reference#team-and-project-name-changes)）。新しい名前は、`.env.local`（または環境変数）を直して 6 章のスクリプトを動かし直し、Secrets を入れ直して渡す。スクリプトは動かすたびに Secrets をその値で上書きするので、画面で Secrets だけを直すと、次にスクリプトを動かしたときに古い値に戻る。Secrets を変えただけでは apply は動かない。apply が動くのは、`infra/terraform/` か `terraform-apply.yml` の変更が main に入ったときだけ（7-1）。また、sub は Google Cloud の `google.subject` になり 127 文字までなので（6 章）、slug と名前が長いと借りられない。
+チームの slug かプロジェクトの名前を変えると、トークンの sub が変わり（slug なら発行元も変わる）、アプリが SA を借りられなくなる（[Vercel のドキュメント](https://vercel.com/docs/oidc/reference#team-and-project-name-changes)）。sub は Google Cloud の `google.subject` になり 127 文字までなので（6 章）、slug と名前が長いときも借りられない。
 
-この WIF は、トークンの宛先（`aud`。トークンがどこ向けかを示す値）が、このプロバイダ専用の値のものだけを受け付ける。専用の値は、Cloud Console のプロバイダの詳細に出る。Vercel が既定で付ける宛先（`https://vercel.com/<チームの slug>`）のトークンは通らない。呼ぶ側（Vercel で動くアプリ）は、トークンを取るときに、この専用の値を宛先として渡す。宛先を渡して取ったトークンの発行元は、Vercel の設定によらずチームの発行元になる（[Vercel のドキュメント](https://vercel.com/docs/oidc/gcp#custom-audience)）。
+名前を変えたときは、新しい値を Secrets に入れ直す（変え方は 6-4）。Secrets を変えただけでは apply は動かない（いつ動くかは 7-1）。
+
+この WIF は、トークンの宛先（`aud`。トークンがどこ向けかを示す値）が、このプロバイダ専用の値のものだけを受け付ける。専用の値は、Cloud Console のプロバイダの詳細に出る。Vercel が既定で付ける宛先（`https://vercel.com/<チームの slug>`）のトークンは通らない。呼ぶ側（Vercel で動くアプリ）は、トークンを取るときに、この専用の値を宛先として渡す。宛先を渡して取ったトークンの発行元は、Vercel の設定によらずチームの発行元（`https://oidc.vercel.com/<チームの slug>`）になるので、この WIF もチームの発行元を受け付ける（[Vercel のドキュメント](https://vercel.com/docs/oidc/gcp#custom-audience)）。
 
 ---
 

@@ -437,8 +437,7 @@ bind_role project "$GCP_PROJECT_ID" "serviceAccount:${PLAN_SA}" roles/iam.securi
 bind_role project "$GCP_PROJECT_ID" "serviceAccount:${PLAN_SA}" roles/iam.workloadIdentityPoolViewer
 # プールとプロバイダを管理する権限は、プロジェクト全体に付ける。特定のプールに絞る方法が、Google の公式文書に見つからなかったため。
 # 代わりに、Terraform が作る Vercel 用のプールとプロバイダに prevent_destroy を付け、誤って消す変更を plan で止める。
-# GitHub 用のプールとプロバイダはこのスクリプトが作り、Terraform の管理外なので、この守りは無い。
-# apply 用 SA は、権限としては GitHub 用のプールとプロバイダも変えたり消したりできる。
+# GitHub 用のプールとプロバイダはこのスクリプトが作る物で Terraform の管理外なので、この守りが無く、apply 用 SA が変えたり消したりできる。
 bind_role project "$GCP_PROJECT_ID" "serviceAccount:${APPLY_SA}" roles/iam.workloadIdentityPoolAdmin
 
 # SA を管理する権限は、Terraform が管理するアプリの SA 1 つにだけ付ける。プロジェクト全体に付けると、

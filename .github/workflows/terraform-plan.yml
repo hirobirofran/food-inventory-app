@@ -45,6 +45,11 @@ env:
   # 識別子を Secrets から渡すのは、公開リポジトリに環境固有の ID を置かないため。Secrets の値は、ログで *** になる（docs/SETUP.md の 6-4）
   TF_VAR_gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
   TF_VAR_app_sa_email: ${{ secrets.APP_SA_EMAIL }}
+  TF_VAR_vercel_team_slug: ${{ secrets.VERCEL_TEAM_SLUG }}
+  TF_VAR_vercel_team_id: ${{ secrets.VERCEL_TEAM_ID }}
+  TF_VAR_vercel_prod_project: ${{ secrets.VERCEL_PROD_PROJECT }}
+  TF_VAR_vercel_demo_project: ${{ secrets.VERCEL_DEMO_PROJECT }}
+  TF_VAR_owner_email: ${{ secrets.OWNER_EMAIL }}
   TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
   LOG_BUCKET: ${{ secrets.LOG_BUCKET }}
 

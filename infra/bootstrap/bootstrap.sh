@@ -40,7 +40,7 @@ TF_IMAGE="hashicorp/terraform:${TF_VERSION}@sha256:4d1b496a256f2989bccdb04b9104a
 
 REQUIRED_VARS=(
   GCP_PROJECT_ID GITHUB_REPO TF_STATE_BUCKET LOG_BUCKET APP_SA_EMAIL
-  VERCEL_TEAM_SLUG VERCEL_PROD_PROJECT VERCEL_DEMO_PROJECT OWNER_EMAIL
+  VERCEL_TEAM_SLUG VERCEL_TEAM_ID VERCEL_PROD_PROJECT VERCEL_DEMO_PROJECT OWNER_EMAIL
 )
 
 say() { printf '[%s] %s\n' "$1" "$2"; }
@@ -417,11 +417,34 @@ bind_role bucket "$LOG_BUCKET" "serviceAccount:${APPLY_SA}" roles/storage.object
 bind_role bucket "$LOG_BUCKET" "serviceAccount:${PLAN_SA}" roles/storage.legacyBucketReader
 bind_role bucket "$LOG_BUCKET" "serviceAccount:${APPLY_SA}" roles/storage.legacyBucketReader
 
+# unbind_project_role <メンバー> <ロール>  ... プロジェクト全体に付いていれば外す。無ければ何もしない
+unbind_project_role() {
+  local member="$1" role="$2" existing
+  existing="$(get_bound project "$GCP_PROJECT_ID" "$member" "$role")" \
+    || die "プロジェクトの IAM ポリシーを読めませんでした。"
+  if [ -z "$existing" ]; then
+    say "そのまま" "project $GCP_PROJECT_ID: $role は付いていない"
+    return 0
+  fi
+  gcloud projects remove-iam-policy-binding "$GCP_PROJECT_ID" --member "$member" --role "$role" \
+    --condition=None --quiet >/dev/null \
+    || die "project $GCP_PROJECT_ID から $role を外せませんでした。"
+  say "外した" "project $GCP_PROJECT_ID: $role"
+}
+
 # プロジェクトの権限（最初の候補。足りない分が分かったらここに足して動かし直す）
 bind_role project "$GCP_PROJECT_ID" "serviceAccount:${PLAN_SA}" roles/iam.securityReviewer
 bind_role project "$GCP_PROJECT_ID" "serviceAccount:${PLAN_SA}" roles/iam.workloadIdentityPoolViewer
+# プールとプロバイダを管理する権限は、プロジェクト全体に付ける。特定のプールに絞る方法が、Google の公式文書に見つからなかったため。
+# 代わりに、Terraform が作るプールとプロバイダに prevent_destroy を付け、誤って消す変更を plan で止める。
 bind_role project "$GCP_PROJECT_ID" "serviceAccount:${APPLY_SA}" roles/iam.workloadIdentityPoolAdmin
-bind_role project "$GCP_PROJECT_ID" "serviceAccount:${APPLY_SA}" roles/iam.serviceAccountAdmin
+
+# SA を管理する権限は、Terraform が管理するアプリの SA 1 つにだけ付ける。プロジェクト全体に付けると、
+# apply 用 SA が、このプロジェクトのどの SA も作り替えたり消したり、借りる許可を書き換えたりできてしまう。
+# 先に SA 側へ付けてからプロジェクト全体を外す順にするのは、途中で止まっても、権限が無い状態にならないため。
+# 外すのは、前の版のスクリプトが付けた分。何度動かしても同じ結果になる（外れていれば何もしない）
+bind_role sa "$APP_SA_EMAIL" "serviceAccount:${APPLY_SA}" roles/iam.serviceAccountAdmin
+unbind_project_role "serviceAccount:${APPLY_SA}" roles/iam.serviceAccountAdmin
 
 # ---------------------------------------------------------------------
 # 8. 最初の state
@@ -594,7 +617,7 @@ set_secret TF_PLAN_SA "$PLAN_SA" "SA ${PLAN_SA_NAME} のメールアドレス"
 set_secret TF_APPLY_SA "$APPLY_SA" "SA ${APPLY_SA_NAME} のメールアドレス"
 # 環境変数の値をそのまま登録するもの
 for name in GCP_PROJECT_ID TF_STATE_BUCKET LOG_BUCKET APP_SA_EMAIL \
-    VERCEL_TEAM_SLUG VERCEL_PROD_PROJECT VERCEL_DEMO_PROJECT OWNER_EMAIL; do
+    VERCEL_TEAM_SLUG VERCEL_TEAM_ID VERCEL_PROD_PROJECT VERCEL_DEMO_PROJECT OWNER_EMAIL; do
   set_secret "$name" "${!name}" "環境変数 $name"
 done
 

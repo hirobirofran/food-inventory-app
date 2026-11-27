@@ -530,7 +530,7 @@ Re-run では試行回数が 1 つ増えるので、全文は新しい名前で�
 
 `infra/terraform/` が管理するのは、次の物。
 
-- アプリが使う SA（`service_accounts.tf`）。もとは手で作った物を、Terraform の管理に取り込んだ。SA を消す変更は、`prevent_destroy` で plan が止まる
+- アプリが使う SA（`service_accounts.tf`）。もとは手で作った物を、Terraform の管理に取り込んだ。SA を消す変更は、`prevent_destroy` で plan が止まる。環境を作り直すときは、2-3 で手で作った SA を、`import` ブロック（[Terraform の文書](https://developer.hashicorp.com/terraform/language/block/import)）で Terraform の管理に取り込む。取り込まずに apply すると、同じ ID の SA がすでにあるので、SA を作ろうとして失敗する。apply 用 SA の、この SA 1 つに絞った権限で取り込めるかは、確かめていない
 - Vercel 用の WIF のプールとプロバイダ（`vercel_wif.tf`）。自分のチームのトークンだけを通す。チームは、名前ではなく ID で見分ける。名前は変えた後や消した後に他人が取り直せるが、ID は使い回されないため。ID の取り出し方は 6-4 の `VERCEL_TEAM_ID`。消す変更は `prevent_destroy` で plan が止まる。消してから 30 日のあいだは復元できるが、そのあいだは同じ ID で作り直せない（[Google の文書](https://docs.cloud.google.com/iam/docs/manage-workload-identity-pools-providers)）
 - アプリの SA を借りられる相手（`service_accounts.tf`）。Vercel の次の相手と、オーナーの Google アカウント（seed 用）だけ。本番プロジェクトの Preview と、手元の開発用トークン（`development`）は借りられない
   - 本番プロジェクトの Production

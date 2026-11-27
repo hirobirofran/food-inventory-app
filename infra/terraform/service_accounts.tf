@@ -94,23 +94,32 @@ data "google_iam_policy" "app" {
   # apply 用 SA が、この SA とそのポリシーを変えられるようにするため。bootstrap.sh が付けている物と同じ許可で、
   # ここに無いと、最初の apply でこの許可が外れ、次の apply から SA を変えられなくなる。
   # bootstrap.sh にも残すのは、最初の apply の前から要るため。片方を変えるときは、もう片方も変える。
-  # 2 か所（ここと bootstrap.sh）がずれると、apply 用 SA の許可を外す plan になり、plan の要約にこのポリシーの変更として出る。
-  # 外れたときは、bootstrap.sh を動かし直して戻す
+  # 2 か所（ここと bootstrap.sh）がずれると、apply 用 SA の許可を外す plan になり、plan の要約に、このポリシーの update として出る。
+  # 外れたときは、先に 2 か所の名前をそろえてから、bootstrap.sh を動かし直し、apply を動かし直す
   binding {
     role    = "roles/iam.serviceAccountAdmin"
     members = ["serviceAccount:${local.apply_sa_email}"]
   }
 }
 
-# この resource ブロックを消すと、プロバイダは SA のポリシーを空にする（apply 用 SA の許可も外れる）。
+# このリソースを消すか置き換えると、プロバイダは SA のポリシーを空にする
+# （https://github.com/hashicorp/terraform-provider-google/blob/v8.11.0/google/tpgiamresource/resource_iam_policy.go の ResourceIamPolicyDelete）。
+# 空になると、Vercel のアプリとオーナーが SA を借りられなくなり、apply 用 SA もこの SA を管理する許可を失う。
+# service_account_id を変えると置き換えになり
+# （https://github.com/hashicorp/terraform-provider-google/blob/v8.11.0/google/services/resourcemanager/iam_service_account.go）、
+# 置き換えは、既定では消してから作る順で動く（https://developer.hashicorp.com/terraform/language/meta-arguments/lifecycle）。
+# 置き換えの plan は、下の prevent_destroy で止める。
 # Terraform の管理から外すときは、ブロックを消す代わりに、上の SA と同じく removed ブロック（destroy = false）を書く
 resource "google_service_account_iam_policy" "app" {
   service_account_id = google_service_account.app.name
   policy_data        = data.google_iam_policy.app.policy_data
 
-  # sub が上限を超えても、plan と apply は通り、アプリが SA を借りるとき（トークンの交換）に初めて失敗する。
-  # 気付くのが遅れないよう、plan で止める。bootstrap.sh も、GitHub 用の sub で同じ上限を確かめている
   lifecycle {
+    # 置き換えの plan を止めるため（理由は、この resource ブロックの上のコメント）
+    prevent_destroy = true
+
+    # sub が上限を超えても、plan と apply は通り、アプリが SA を借りるとき（トークンの交換）に初めて失敗する。
+    # 気付くのが遅れないよう、plan で止める。bootstrap.sh も、GitHub 用の sub で同じ上限を確かめている
     precondition {
       condition     = alltrue([for sub in local.vercel_borrower_subs : length(sub) <= local.google_subject_max_length])
       error_message = "Vercel の相手の sub が、google.subject の上限（${local.google_subject_max_length} 文字）を超えます。Secret VERCEL_TEAM_SLUG・VERCEL_PROD_PROJECT・VERCEL_DEMO_PROJECT の長さを確かめてください。"

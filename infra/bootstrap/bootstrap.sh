@@ -451,7 +451,8 @@ bind_role project "$GCP_PROJECT_ID" "serviceAccount:${APPLY_SA}" roles/iam.workl
 # 外すのは、前の版のスクリプトが付けた分。何度動かしても同じ結果になる（外れていれば何もしない）。
 # Terraform はアプリの SA のポリシー全体を決めるので、同じ許可を infra/terraform/service_accounts.tf にも書いてある。
 # ここで付けるのは、最初の apply の前から要るため。片方を変えるときは、もう片方も変える。
-# ずれると、apply がこの許可を外す plan になる。外れたときは、このスクリプトを動かし直して戻す
+# ずれると、apply がこの許可を外す plan になる。外れたときは、先に 2 か所の名前をそろえてから、
+# このスクリプトを動かし直し、apply を動かし直す
 bind_role sa "$APP_SA_EMAIL" "serviceAccount:${APPLY_SA}" roles/iam.serviceAccountAdmin
 unbind_project_role "serviceAccount:${APPLY_SA}" roles/iam.serviceAccountAdmin
 

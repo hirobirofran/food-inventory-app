@@ -334,7 +334,7 @@ apply 用 SA の権限（付ける権限の実物は、`infra/bootstrap/bootstra
 
 - プールとプロバイダを管理する権限は、プロジェクト全体に付ける。特定のプールだけに絞る方法を、Google の公式文書に見つけられなかったため。代わりに、Terraform が作る Vercel 用のプールとプロバイダには、消す変更を plan で止める設定（`prevent_destroy`）を付けている。ただし、止まるのは resource ブロックが残っているときだけで、ブロックごと消す変更は止まらない（`infra/terraform/vercel_wif.tf` のコメント）。GitHub 用のプールとプロバイダは、このスクリプトが作る物で Terraform の管理外なので、この設定が無く、apply 用 SA が変えたり消したりできる
 - SA を管理する権限は、Terraform が管理するアプリの SA 1 つにだけ付け、プロジェクト全体には付けない。前の版のスクリプトがプロジェクト全体に付けた分は、スクリプトが外す。先に SA 1 つへ付けてから外すので、途中で止まっても権限が無い状態にならない
-- SA を管理する権限は、Terraform（`infra/terraform/service_accounts.tf`）にも同じ物を書いている。Terraform はアプリの SA に付く許可を全部決める（7-5）ので、書かないと最初の apply で外れるため。スクリプトにも残すのは、最初の apply の前から要るため。2 か所がずれると、apply がこの権限を外す plan になり、plan の要約にアプリの SA のポリシーの変更として出る。外れたときは、スクリプトを動かし直して戻す
+- SA を管理する権限は、Terraform（`infra/terraform/service_accounts.tf`）にも同じ物を書いている。Terraform はアプリの SA に付く許可を全部決める（7-5）ので、書かないと最初の apply で外れるため。スクリプトにも残すのは、最初の apply の前から要るため。2 か所がずれると、apply がこの権限を外す plan になり、plan の要約に、アプリの SA のポリシーの `update` として出る。外れたときは、先に 2 か所で apply 用 SA の名前をそろえる。その後に、スクリプトを動かし直し、apply を動かし直す
 
 リポジトリの番号で絞る理由: リポジトリの名前は、消したり改名したりした後に、別の人が同じ名前で作り直せる。番号は GitHub が付ける値で、使い回されない。スクリプトは番号を GitHub から取るので、渡す値は増えない。Cloud Console のプロバイダの条件（`assertion.repository_id == '<番号>'`）と照らし合わせたいときは、`gh api repos/<オーナー>/<リポジトリ名> --jq .id` で番号を調べる。
 
@@ -535,7 +535,7 @@ Re-run では試行回数が 1 つ増えるので、全文は新しい名前で�
 - Vercel 用の WIF のプールとプロバイダ（`vercel_wif.tf`）。自分のチームのトークンだけを通す。チームは、名前ではなく ID で見分ける。名前は変えた後や消した後に他人が取り直せるが、ID は使い回されないため。ID の取り出し方は 6-4 の `VERCEL_TEAM_ID`。消す変更は、resource ブロックが残っているあいだは、`prevent_destroy` で plan が止まる（止まらない変更は `vercel_wif.tf` のコメント）。消してから 30 日のあいだは復元できるが、そのあいだは同じ ID で作り直せない（[Google の文書](https://docs.cloud.google.com/iam/docs/manage-workload-identity-pools-providers)）
 - アプリの SA に付く許可（`service_accounts.tf`）。SA を借りられるのは、Vercel の相手と、オーナーの Google アカウント（seed 用）だけ。ほかに、apply 用 SA がこの SA を管理する許可を入れる（6 章の「apply 用 SA の権限」）。Vercel の相手は `vercel_borrower_subjects` に並べ、入れない相手の理由もそこに書いてある
 
-Terraform は、この SA のポリシー全体を決める。そのため、この SA に付く許可は、Terraform に書いた物だけになる。画面などでこの SA に手で足した許可は、どのロールでも、条件（期限など）を付けていても、plan に差分として出て、apply で外れる（[google プロバイダの文書](https://registry.terraform.io/providers/hashicorp/google/8.11.0/docs/resources/google_service_account_iam)）。許可を足すときは Terraform を直す。また、プロジェクト全体に付けた権限は、そのプロジェクトのすべての SA に届くが、Terraform は見ないので plan に出ない（[Google の文書](https://docs.cloud.google.com/iam/docs/manage-access-service-accounts)）。
+Terraform は、この SA のポリシー全体を決める。そのため、apply の後にこの SA に付いている許可は、Terraform に書いた物だけになる。画面などでこの SA に手で足した許可は、どのロールでも、条件（期限など）を付けていても、次に plan が動いたときに差分として出て、次の apply で外れる（[google プロバイダの文書](https://registry.terraform.io/providers/hashicorp/google/8.11.0/docs/resources/google_service_account_iam)）。外れるまでは効いている（plan と apply がいつ動くかは 7-1）。許可を足すときは Terraform を直す。また、プロジェクト全体に付けた権限は、そのプロジェクトのすべての SA に届くが、Terraform は見ないので plan に出ない（[Google の文書](https://docs.cloud.google.com/iam/docs/manage-access-service-accounts)）。
 
 Vercel の相手には、デモプロジェクトの Preview を入れている。これは、Vercel の Git fork protection を前提にしている。Git fork protection は、フォークからの PR を、チームの人が認めるまでデプロイしない仕組みで、環境変数と Vercel のトークンが漏れないようにするためのもの。プロジェクトの設定の Security で無効にできる（[Vercel のドキュメント](https://vercel.com/docs/project-configuration/security-settings#git-fork-protection)）。無効にすると、外部の人のフォークからの PR のコードが、デモの Preview としてこの SA を借りられる。Git fork protection の対象はフォークからの PR だけで、このリポジトリのブランチの PR（Dependabot の PR を含む）は、デモの Preview としてデプロイされ、この SA を借りられる。
 

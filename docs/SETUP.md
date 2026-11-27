@@ -537,7 +537,7 @@ Re-run では試行回数が 1 つ増えるので、全文は新しい名前で�
   - デモプロジェクトの Production
   - デモプロジェクトの Preview
 
-この SA を借りるためのロール（Vercel の相手用と、オーナー用）は、どちらも、持つ相手が Terraform に書いた相手だけになる。画面などで、これらのロールをこの SA に手で足した相手は、plan に差分として出て、apply で外れる。相手を足すときは Terraform を直す。ただし、プロジェクト全体に付けた権限は、そのプロジェクトのすべての SA に届くが、Terraform は見ないので plan に出ない（[Google の文書](https://docs.cloud.google.com/iam/docs/manage-access-service-accounts)）。
+この SA を借りるためのロール（Vercel の相手用と、オーナー用）は、どちらも、条件なしの付与を持つ相手が Terraform に書いた相手だけになる。画面などで、これらのロールをこの SA に条件なしで手で足した相手は、plan に差分として出て、apply で外れる。相手を足すときは Terraform を直す。ただし、条件（期限など）を付けて足した相手は、Terraform が別の付与として扱うので、plan に出ず、apply でも外れない（[google プロバイダの文書](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/google_service_account_iam)）。また、プロジェクト全体に付けた権限は、そのプロジェクトのすべての SA に届くが、Terraform は見ないので plan に出ない（[Google の文書](https://docs.cloud.google.com/iam/docs/manage-access-service-accounts)）。
 
 デモプロジェクトの Preview を借りられる相手に入れているのは、Vercel の Git fork protection を前提にしている。Git fork protection は、フォークからの PR を、チームの人が認めるまでデプロイしない仕組みで、環境変数と Vercel のトークンが漏れないようにするためのもの。プロジェクトの設定の Security で無効にできる（[Vercel のドキュメント](https://vercel.com/docs/project-configuration/security-settings#git-fork-protection)）。無効にすると、外部の人のフォークからの PR のコードが、デモの Preview としてこの SA を借りられる。
 

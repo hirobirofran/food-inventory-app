@@ -44,9 +44,12 @@ locals {
   ]
 }
 
-# google_service_account_iam_binding は、このロールを持つ相手を members の列挙だけにする。
-# 手で足された相手は、plan に差分として出て、apply で外れる。
-# ただし、見るのはこの SA 自身に付いた許可だけ。プロジェクト全体に付けた権限は、プロジェクトのすべての SA に届くが
+# google_service_account_iam_binding は、このロールの条件なしの付与を、members の列挙だけにする。
+# 条件なしで手で足された相手は、plan に差分として出て、apply で外れる。
+# 条件（IAM Conditions。期限などを付けた付与）付きで足された相手は、plan に出ず、apply でも外れない。
+# このリソースは、ロールと条件の組で付与を見分け、条件の違う付与を別の物として扱うため
+# （https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/google_service_account_iam）。
+# また、見るのはこの SA 自身に付いた許可だけ。プロジェクト全体に付けた権限は、プロジェクトのすべての SA に届くが
 # （https://docs.cloud.google.com/iam/docs/manage-access-service-accounts）、plan には出ない。
 # google_service_account_iam_policy は使わない。SA のポリシー全体を決めるので、bootstrap.sh が apply 用 SA に付けた、
 # この SA を管理する権限まで消えて、次の apply から SA を変更できなくなる。

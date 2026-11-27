@@ -4,6 +4,8 @@
 # プールとプロバイダに prevent_destroy を付けるのは、消す変更を plan の段階で止めるため。
 # 消すと、Vercel のアプリが SA を借りられなくなる。消してから 30 日のあいだは復元できるが、そのあいだは同じ ID で作り直せない
 # （https://docs.cloud.google.com/iam/docs/manage-workload-identity-pools-providers）。
+# 止まるのは、resource ブロックが残ったまま消す（置き換えを含む）plan だけ。ブロックやこのファイルごと消す変更は止まらず、
+# plan の要約に delete として出るので、そこで気付く（https://developer.hashicorp.com/terraform/language/meta-arguments/lifecycle）
 
 resource "google_iam_workload_identity_pool" "vercel" {
   workload_identity_pool_id = "vercel"

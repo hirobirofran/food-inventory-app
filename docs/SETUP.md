@@ -332,7 +332,7 @@ apply の流れ（ワークフローの動きは 7 章）: `infra/terraform/` �
 
 apply 用 SA の権限（付ける権限の実物は、`infra/bootstrap/bootstrap.sh` の「プロジェクトとアプリの SA の権限」にある）:
 
-- プールとプロバイダを管理する権限は、プロジェクト全体に付ける。特定のプールだけに絞る方法を、Google の公式文書に見つけられなかったため。代わりに、Terraform が作る Vercel 用のプールとプロバイダには、消す変更を plan で止める設定（`prevent_destroy`）を付けている。GitHub 用のプールとプロバイダは、このスクリプトが作る物で Terraform の管理外なので、この設定が無く、apply 用 SA が変えたり消したりできる
+- プールとプロバイダを管理する権限は、プロジェクト全体に付ける。特定のプールだけに絞る方法を、Google の公式文書に見つけられなかったため。代わりに、Terraform が作る Vercel 用のプールとプロバイダには、消す変更を plan で止める設定（`prevent_destroy`）を付けている。ただし、止まるのは resource ブロックが残っているときだけで、ブロックごと消す変更は止まらない（`infra/terraform/vercel_wif.tf` のコメント）。GitHub 用のプールとプロバイダは、このスクリプトが作る物で Terraform の管理外なので、この設定が無く、apply 用 SA が変えたり消したりできる
 - SA を管理する権限は、Terraform が管理するアプリの SA 1 つにだけ付け、プロジェクト全体には付けない。前の版のスクリプトがプロジェクト全体に付けた分は、スクリプトが外す。先に SA 1 つへ付けてから外すので、途中で止まっても権限が無い状態にならない
 
 リポジトリの番号で絞る理由: リポジトリの名前は、消したり改名したりした後に、別の人が同じ名前で作り直せる。番号は GitHub が付ける値で、使い回されない。スクリプトは番号を GitHub から取るので、渡す値は増えない。Cloud Console のプロバイダの条件（`assertion.repository_id == '<番号>'`）と照らし合わせたいときは、`gh api repos/<オーナー>/<リポジトリ名> --jq .id` で番号を調べる。
@@ -530,8 +530,8 @@ Re-run では試行回数が 1 つ増えるので、全文は新しい名前で�
 
 `infra/terraform/` が管理するのは、次の物。
 
-- アプリが使う SA（`service_accounts.tf`）。もとは手で作った物を、Terraform の管理に取り込んだ。SA を消す変更は、`prevent_destroy` で plan が止まる。環境を作り直すときは、2-3 で手で作った SA を、`import` ブロック（[Terraform の文書](https://developer.hashicorp.com/terraform/language/block/import)）で Terraform の管理に取り込む。取り込まずに apply すると、同じ ID の SA がすでにあるので、SA を作ろうとして失敗する。apply 用 SA の、この SA 1 つに絞った権限で取り込めるかは、確かめていない
-- Vercel 用の WIF のプールとプロバイダ（`vercel_wif.tf`）。自分のチームのトークンだけを通す。チームは、名前ではなく ID で見分ける。名前は変えた後や消した後に他人が取り直せるが、ID は使い回されないため。ID の取り出し方は 6-4 の `VERCEL_TEAM_ID`。消す変更は `prevent_destroy` で plan が止まる。消してから 30 日のあいだは復元できるが、そのあいだは同じ ID で作り直せない（[Google の文書](https://docs.cloud.google.com/iam/docs/manage-workload-identity-pools-providers)）
+- アプリが使う SA（`service_accounts.tf`）。もとは手で作った物を、Terraform の管理に取り込んだ。SA を消す変更は、resource ブロックが残っているあいだは、`prevent_destroy` で plan が止まる（止まらない変更は `service_accounts.tf` のコメント）。環境を作り直すときは、2-3 で手で作った SA を、`import` ブロック（[Terraform の文書](https://developer.hashicorp.com/terraform/language/block/import)）で Terraform の管理に取り込む。取り込まずに apply すると、同じ ID の SA がすでにあるので、SA を作ろうとして失敗する。apply 用 SA の、この SA 1 つに絞った権限で取り込めるかは、確かめていない
+- Vercel 用の WIF のプールとプロバイダ（`vercel_wif.tf`）。自分のチームのトークンだけを通す。チームは、名前ではなく ID で見分ける。名前は変えた後や消した後に他人が取り直せるが、ID は使い回されないため。ID の取り出し方は 6-4 の `VERCEL_TEAM_ID`。消す変更は、resource ブロックが残っているあいだは、`prevent_destroy` で plan が止まる（止まらない変更は `vercel_wif.tf` のコメント）。消してから 30 日のあいだは復元できるが、そのあいだは同じ ID で作り直せない（[Google の文書](https://docs.cloud.google.com/iam/docs/manage-workload-identity-pools-providers)）
 - アプリの SA を借りられる相手（`service_accounts.tf`）。Vercel の次の相手と、オーナーの Google アカウント（seed 用）だけ。本番プロジェクトの Preview と、手元の開発用トークン（`development`）は借りられない
   - 本番プロジェクトの Production
   - デモプロジェクトの Production
